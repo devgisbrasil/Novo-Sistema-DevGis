@@ -54,6 +54,17 @@ class AccessLog(db.Model):
     timestamp = db.Column(db.DateTime, server_default=func.now(), nullable=False)
 
 
+class GeoJSONFile(db.Model):
+    __tablename__ = "geojson_files"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    name = db.Column(db.String(255), nullable=False)
+    data = db.Column(db.JSON, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=func.now(), nullable=False)
+
+    user = relationship("User")
+
+
 @login_manager.user_loader
 def load_user(user_id: str):
     return User.query.get(int(user_id))

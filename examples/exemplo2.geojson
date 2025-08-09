@@ -1,0 +1,16 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "Linha 1"},
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-46.6333, -23.5505],
+          [-43.2096, -22.9035]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+  <style>
+    html, body { height: 100%; }
+    main.container { max-width: 100% !important; padding: 0; }
+    #map { height: calc(100vh - 64px); width: 100%; }
+  </style>
+  <div id="map"></div>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const map = L.map('map');
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Inicializa com um view padrão; depois ajustamos ao conteúdo
+    map.setView([0, 0], 2);
+
+    fetch('{{ url_for('sig.api_my_geojsons') }}')
+      .then(r => r.json())
+      .then(items => {
+        if (!Array.isArray(items)) return;
+        const group = L.featureGroup();
+        items.forEach(item => {
+          const gj = L.geoJSON(item.data, {
+            style: { color: '#0d6efd' }
+          });
+          gj.bindPopup(`<strong>${item.name}</strong>`);
+          gj.addTo(group);
+        });
+        if (group.getLayers().length) {
+          group.addTo(map);
+          map.fitBounds(group.getBounds(), { padding: [20, 20] });
+        }
+      })
+      .catch(() => {});
+  </script>
+{% endblock %}

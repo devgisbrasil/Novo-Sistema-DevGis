@@ -88,8 +88,10 @@ def create_app():
     # Blueprints
     from .auth import auth_bp
     from .views import main_bp
+    from .sig import sig_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
+    app.register_blueprint(sig_bp)
 
     # Flask-Admin configuration with role-based access
     class AdminHomeView(AdminIndexView):
@@ -135,6 +137,8 @@ def create_app():
     admin.add_view(SecureModelView(Role, db.session, category="Gerenciamento", endpoint="role"))
     admin.add_view(SecureModelView(UserRole, db.session, category="Gerenciamento", endpoint="userrole"))
     admin.add_view(SecureModelView(AccessLog, db.session, category="Logs", endpoint="accesslog"))
+    from .models import GeoJSONFile  # noqa: WPS433
+    admin.add_view(SecureModelView(GeoJSONFile, db.session, category="SIG", endpoint="geojsonfile"))
 
     @app.route("/admin")
     def admin_root():

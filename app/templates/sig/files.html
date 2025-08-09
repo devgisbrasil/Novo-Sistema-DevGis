@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h5 mb-0">SIG • Meus GeoJSONs</h1>
+    <form method="post" action="{{ url_for('sig.load_examples') }}">
+      <button class="btn btn-outline-secondary btn-sm" type="submit">Carregar exemplos</button>
+    </form>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-header">Upload de arquivo</div>
+        <div class="card-body">
+          <form method="post" enctype="multipart/form-data">
+            <div class="mb-2">
+              <label class="form-label">Nome</label>
+              <input class="form-control" type="text" name="name" placeholder="Nome opcional" />
+            </div>
+            <div class="mb-2">
+              <input class="form-control" type="file" name="file" accept=".json,.geojson,application/geo+json,application/json" />
+            </div>
+            <button class="btn btn-primary" type="submit">Enviar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-header">Colar GeoJSON (texto)</div>
+        <div class="card-body">
+          <form method="post">
+            <div class="mb-2">
+              <label class="form-label">Nome</label>
+              <input class="form-control" type="text" name="name" placeholder="Nome opcional" />
+            </div>
+            <div class="mb-2">
+              <textarea class="form-control" name="raw_json" rows="8" placeholder='Cole aqui um GeoJSON válido'></textarea>
+            </div>
+            <button class="btn btn-primary" type="submit">Salvar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt-3">
+    <div class="card-header">Meus arquivos</div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th class="text-nowrap">Criado em</th>
+              <th class="text-end">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in files %}
+              <tr>
+                <td>{{ f.name }}</td>
+                <td class="text-nowrap">{{ f.created_at }}</td>
+                <td class="text-end">
+                  <form method="post" action="{{ url_for('sig.delete_file', file_id=f.id) }}" onsubmit="return confirm('Remover este arquivo?');" class="d-inline">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">Remover</button>
+                  </form>
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="3" class="text-center text-muted">Nenhum arquivo ainda.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% endblock %}

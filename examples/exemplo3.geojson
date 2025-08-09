@@ -1,0 +1,21 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "Polígono 1"},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-48.0, -15.9],
+            [-47.8, -15.9],
+            [-47.8, -15.7],
+            [-48.0, -15.7],
+            [-48.0, -15.9]
+          ]
+        ]
+      }
+    }
+  ]
+}
