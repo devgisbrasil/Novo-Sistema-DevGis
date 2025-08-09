@@ -19,6 +19,12 @@ def _validate_geojson(obj):
     return t in {"Feature", "Point", "LineString", "Polygon", "MultiPoint", "MultiLineString", "MultiPolygon"}
 
 
+@sig_bp.get("/")
+@login_required
+def index():
+    return render_template("sig/index.html")
+
+
 @sig_bp.route("/files", methods=["GET", "POST"])
 @login_required
 def files():
@@ -86,6 +92,41 @@ def api_my_geojsons():
     return jsonify([
         {"id": f.id, "name": f.name, "data": f.data} for f in files
     ])
+
+
+@sig_bp.post("/api/upload")
+@login_required
+def api_upload():
+    """Upload de GeoJSON via API (map page). Aceita multipart com 'file' ou JSON bruto em 'raw_json'."""
+    uploaded = request.files.get("file")
+    raw = request.form.get("raw_json", "").strip()
+    name = request.form.get("name", "").strip()
+    try:
+        if uploaded and uploaded.filename:
+            filename = secure_filename(uploaded.filename)
+            content = uploaded.read().decode("utf-8")
+            data = json.loads(content)
+            if not name:
+                name = filename
+        elif raw:
+            data = json.loads(raw)
+            if not name:
+                name = "GeoJSON sem nome"
+        else:
+            return jsonify({"error": "Arquivo ou JSON não fornecido"}), 400
+
+        if not _validate_geojson(data):
+            return jsonify({"error": "GeoJSON inválido"}), 400
+
+        rec = GeoJSONFile(user_id=current_user.id, name=name or "Sem nome", data=data)
+        db.session.add(rec)
+        db.session.commit()
+        return jsonify({"id": rec.id, "name": rec.name, "data": rec.data}), 201
+    except json.JSONDecodeError:
+        return jsonify({"error": "JSON inválido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Falha ao salvar"}), 500
 
 
 @sig_bp.get("/map")

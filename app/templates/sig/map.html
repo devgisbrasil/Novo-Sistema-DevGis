@@ -3,39 +3,148 @@
   <style>
     html, body { height: 100%; }
     main.container { max-width: 100% !important; padding: 0; }
-    #map { height: calc(100vh - 64px); width: 100%; }
+    .map-wrapper { display: flex; height: calc(100vh - 64px); width: 100%; }
+    .sidebar { width: 300px; background: #fff; border-right: 1px solid #e5e7eb; padding: 12px; overflow: auto; }
+    .sidebar h2 { font-size: 1rem; margin: 0 0 8px; font-weight: 700; }
+    .sidebar .section { margin-bottom: 14px; }
+    .sidebar .muted { color: #6c757d; font-size: .9rem; }
+    .sidebar .list { list-style: none; padding: 0; margin: 0; }
+    .sidebar .list li { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #eee; }
+    #map { flex: 1; }
   </style>
-  <div id="map"></div>
+  <div class="map-wrapper">
+    <aside class="sidebar">
+      <div class="section">
+        <h2>Camada base</h2>
+        <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-road" value="road" checked><label class="form-check-label" for="bm-road">Rodoviário</label></div>
+        <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-sat" value="sat"><label class="form-check-label" for="bm-sat">Satélite</label></div>
+        <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-relief" value="relief"><label class="form-check-label" for="bm-relief">Relevo</label></div>
+      </div>
+      <div class="section">
+        <h2>Meus GeoJSONs</h2>
+        <ul id="layers-list" class="list"></ul>
+        <p class="muted" id="no-layers" style="display:none">Nenhum arquivo. Envie um abaixo.</p>
+      </div>
+      <div class="section">
+        <h2>Novo GeoJSON</h2>
+        <form id="upload-form">
+          <div class="mb-2"><input class="form-control form-control-sm" type="text" name="name" placeholder="Nome opcional" /></div>
+          <div class="mb-2"><input class="form-control form-control-sm" type="file" name="file" accept=".json,.geojson,application/geo+json,application/json" required /></div>
+          <button class="btn btn-primary btn-sm" type="submit">Carregar</button>
+          <div class="form-text">Somente você verá/manipulará seus arquivos.</div>
+        </form>
+      </div>
+    </aside>
+    <div id="map"></div>
+  </div>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
   <script>
     const map = L.map('map');
-    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-
-    // Inicializa com um view padrão; depois ajustamos ao conteúdo
+    // Base layers
+    const baseLayers = {
+      road: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}),
+      sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {attribution: 'Tiles &copy; Esri'}),
+      relief: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {maxZoom: 17, attribution: 'Map data: &copy; OpenStreetMap, SRTM | Map style: &copy; OpenTopoMap'})
+    };
+    baseLayers.road.addTo(map);
     map.setView([0, 0], 2);
 
-    fetch('{{ url_for('sig.api_my_geojsons') }}')
-      .then(r => r.json())
-      .then(items => {
-        if (!Array.isArray(items)) return;
-        const group = L.featureGroup();
-        items.forEach(item => {
-          const gj = L.geoJSON(item.data, {
-            style: { color: '#0d6efd' }
-          });
-          gj.bindPopup(`<strong>${item.name}</strong>`);
-          gj.addTo(group);
+    // Draw tools (outside sidebar)
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+    const drawControl = new L.Control.Draw({
+      edit: { featureGroup: drawnItems },
+      draw: { polygon: true, polyline: true, rectangle: true, circle: true, marker: true }
+    });
+    map.addControl(drawControl);
+    map.on(L.Draw.Event.CREATED, function (e) { drawnItems.addLayer(e.layer); });
+
+    // My GeoJSON layers state
+    const userLayers = new Map(); // id -> layer
+    let currentItems = [];
+
+    function renderList() {
+      const list = document.getElementById('layers-list');
+      const no = document.getElementById('no-layers');
+      list.innerHTML = '';
+      if (!currentItems.length) { no.style.display = 'block'; return; } else { no.style.display = 'none'; }
+      currentItems.forEach(item => {
+        const li = document.createElement('li');
+        const label = document.createElement('label');
+        label.className = 'form-check-label';
+        const chk = document.createElement('input');
+        chk.className = 'form-check-input me-2';
+        chk.type = 'checkbox';
+        chk.checked = true;
+        chk.addEventListener('change', () => {
+          const layer = userLayers.get(item.id);
+          if (!layer) return;
+          if (chk.checked) { layer.addTo(map); } else { map.removeLayer(layer); }
         });
-        if (group.getLayers().length) {
-          group.addTo(map);
-          map.fitBounds(group.getBounds(), { padding: [20, 20] });
-        }
-      })
-      .catch(() => {});
+        label.appendChild(chk);
+        label.appendChild(document.createTextNode(item.name));
+        li.appendChild(label);
+        list.appendChild(li);
+      });
+    }
+
+    function addOrReplaceLayer(item) {
+      // remove existing
+      const existing = userLayers.get(item.id);
+      if (existing) { map.removeLayer(existing); }
+      const layer = L.geoJSON(item.data, { style: { color: '#0d6efd' } }).bindPopup(`<strong>${item.name}</strong>`);
+      userLayers.set(item.id, layer);
+      layer.addTo(map);
+      return layer;
+    }
+
+    function fitToAll() {
+      const group = L.featureGroup([...userLayers.values()]);
+      if (group.getLayers().length) { map.fitBounds(group.getBounds(), { padding: [20, 20] }); }
+    }
+
+    function loadItems() {
+      return fetch("{{ url_for('sig.api_my_geojsons') }}")
+        .then(r => r.json())
+        .then(items => {
+          currentItems = Array.isArray(items) ? items : [];
+          currentItems.forEach(addOrReplaceLayer);
+          renderList();
+          fitToAll();
+        })
+        .catch(() => {});
+    }
+
+    // Basemap switching
+    document.querySelectorAll('input[name="basemap"]').forEach(r => {
+      r.addEventListener('change', () => {
+        // remove all base layers then add selected
+        Object.values(baseLayers).forEach(l => map.removeLayer(l));
+        baseLayers[r.value].addTo(map);
+      });
+    });
+
+    // Upload handler
+    document.getElementById('upload-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const form = ev.currentTarget;
+      const fd = new FormData(form);
+      const resp = await fetch("{{ url_for('sig.api_upload') }}", { method: 'POST', body: fd });
+      if (!resp.ok) { alert('Falha ao enviar arquivo'); return; }
+      const item = await resp.json();
+      // update state
+      currentItems.push(item);
+      addOrReplaceLayer(item);
+      renderList();
+      fitToAll();
+      form.reset();
+    });
+
+    // Initial load
+    loadItems();
   </script>
 {% endblock %}
