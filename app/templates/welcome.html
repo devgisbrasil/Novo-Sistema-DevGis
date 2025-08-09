@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="p-5 rounded welcome-card">
+    {% if user.is_authenticated %}
+      <h1 class="display-6 mb-3">Bem-vindo(a), {{ user.name }}!</h1>
+      <p class="lead">Este é o módulo de boas-vindas. Use o menu para navegar pelos módulos disponíveis de acordo com suas permissões.</p>
+    {% else %}
+      <h1 class="display-6 mb-3">Bem-vindo(a)!</h1>
+      <p class="lead">Este é o módulo de boas-vindas público. Para acessar a área administrativa, faça login.</p>
+      <a class="btn btn-primary" href="{{ url_for('auth.login') }}">Entrar</a>
+    {% endif %}
+  </div>
+{% endblock %}

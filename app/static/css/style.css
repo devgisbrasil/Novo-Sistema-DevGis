@@ -1,0 +1,23 @@
+:root{
+  --brand:#1a5632;
+  --brand-100:#e6f0ea;
+  --brand-200:#c2dacd;
+  --brand-300:#9bc1ad;
+  --brand-400:#6ea787;
+  --brand-500:#1a5632; /* principal */
+  --brand-600:#164a2b;
+  --brand-700:#123e24;
+  --brand-800:#0e331d;
+  --brand-900:#0a2716;
+}
+
+.bg-primary{background-color:var(--brand-500)!important}
+.text-primary{color:var(--brand-500)!important}
+.btn-primary{background-color:var(--brand-500);border-color:var(--brand-600)}
+.btn-primary:hover{background-color:var(--brand-600);border-color:var(--brand-700)}
+
+body{background:#f7f9f8}
+.welcome-card{background:white;border-left:6px solid var(--brand-500)}
+
+/* Form spacing */
+.form-label{font-weight:600}

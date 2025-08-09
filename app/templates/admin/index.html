@@ -1,0 +1,22 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h4 mb-0">Administração</h1>
+  </div>
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <p class="mb-3">Bem-vindo(a) ao painel administrativo. Selecione um módulo:</p>
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-primary" href="{{ url_for('user.index_view') }}">Usuários</a>
+            <a class="btn btn-outline-primary" href="{{ url_for('role.index_view') }}">Papéis</a>
+            <a class="btn btn-outline-primary" href="{{ url_for('userrole.index_view') }}">Vínculos Usuário-Papel</a>
+            <a class="btn btn-outline-primary" href="{{ url_for('accesslog.index_view') }}">Logs de Acesso</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

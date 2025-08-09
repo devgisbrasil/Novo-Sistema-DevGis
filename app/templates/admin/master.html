@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+
+{#
+  Ponte de layout para o Flask-Admin usar o mesmo visual do site.
+  As páginas do Admin preencherão o bloco "body" abaixo.
+#}
+
+{% block content %}
+  {% block body %}{% endblock %}
+{% endblock %}

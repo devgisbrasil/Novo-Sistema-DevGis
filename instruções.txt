@@ -1,0 +1,9 @@
+Usando docker e flask, faça o que é solicitado:
+
+Quero criar um sistema simples, que permita:
+Cadastrar usuarios,
+Dar permissões para usuarios acessar ou não páginas e módulos,
+terá um modulo de admin e um modulo de "Bem vindo"
+No modulo de admin será possivel gerenciar usuarios, logs de acessos,visualizar e editar tabelas do banco de dados.
+Deve haver um manual de design, de maneira a manter a consistencia do design em todas as paginas.
+Não deve ser usado emogis e a cor principal é: #1a5632
