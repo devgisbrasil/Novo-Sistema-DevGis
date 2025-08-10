@@ -5,7 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Devgis</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    /* Ensure dropdowns render above Leaflet and other controls */
+    .navbar .dropdown-menu { z-index: 5000; }
+  </style>
 </head>
 <body>
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -17,13 +22,26 @@
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item"><a class="nav-link" href="/">Bem-vindo</a></li>
-          <li class="nav-item"><a class="nav-link" href="/admin/">Admin</a></li>
+          {% if current_user.is_authenticated and current_user.has_role('admin') %}
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Admin</a>
+              <ul class="dropdown-menu" aria-labelledby="adminDropdown">
+                <li><a class="dropdown-item" href="{{ url_for('user.index_view') }}">Usuários</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('role.index_view') }}">Papéis</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('userrole.index_view') }}">Vínculos Usuário-Papel</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('accesslog.index_view') }}">Logs de Acesso</a></li>
+              </ul>
+            </li>
+          {% else %}
+            <li class="nav-item"><a class="nav-link" href="/admin/">Admin</a></li>
+          {% endif %}
           {% if current_user.is_authenticated %}
             <li class="nav-item dropdown" id="nav-sigweb">
               <a class="nav-link dropdown-toggle" href="#" id="sigwebDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">SIG WEB</a>
               <ul class="dropdown-menu" aria-labelledby="sigwebDropdown">
                 <li><a class="dropdown-item" href="{{ url_for('sig.map_view') }}">Mapa</a></li>
                 <li><a class="dropdown-item" href="{{ url_for('sig.files') }}">Lista de camadas</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('sig.maps') }}">Meus mapas</a></li>
               </ul>
             </li>
           {% endif %}
@@ -55,25 +73,26 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Mostrar dropdown no hover (além do clique)
+    // Mostrar dropdowns no hover (além do clique)
     (function(){
-      const el = document.getElementById('nav-sigweb');
-      if(!el) return;
-      el.addEventListener('mouseenter', () => {
-        const dd = el.querySelector('.dropdown-toggle');
-        const menu = el.querySelector('.dropdown-menu');
-        if(dd && menu){
-          dd.classList.add('show');
-          menu.classList.add('show');
-        }
-      });
-      el.addEventListener('mouseleave', () => {
-        const dd = el.querySelector('.dropdown-toggle');
-        const menu = el.querySelector('.dropdown-menu');
-        if(dd && menu){
-          dd.classList.remove('show');
-          menu.classList.remove('show');
-        }
+      const items = document.querySelectorAll('.navbar .nav-item.dropdown');
+      items.forEach((el) => {
+        el.addEventListener('mouseenter', () => {
+          const dd = el.querySelector('.dropdown-toggle');
+          const menu = el.querySelector('.dropdown-menu');
+          if(dd && menu){
+            dd.classList.add('show');
+            menu.classList.add('show');
+          }
+        });
+        el.addEventListener('mouseleave', () => {
+          const dd = el.querySelector('.dropdown-toggle');
+          const menu = el.querySelector('.dropdown-menu');
+          if(dd && menu){
+            dd.classList.remove('show');
+            menu.classList.remove('show');
+          }
+        });
       });
     })();
   </script>

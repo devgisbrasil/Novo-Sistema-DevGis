@@ -2,14 +2,23 @@
 {% block content %}
   <style>
     html, body { height: 100%; }
-    main.container { max-width: 100% !important; padding: 0; }
-    .map-wrapper { display: flex; height: calc(100vh - 64px); width: 100%; }
-    .sidebar { width: 300px; background: #fff; border-right: 1px solid #e5e7eb; padding: 12px; overflow: auto; }
-    .sidebar h2 { font-size: 1rem; margin: 0 0 8px; font-weight: 700; }
+    main.container { max-width: 100% !important; padding: 0; margin-top: 0 !important; }
+    .map-wrapper { display: flex; height: calc(100vh - 56px); width: 100%; }
+    .sidebar { width: 300px; background: #fff; border-right: 1px solid #e5e7eb; padding: 12px 12px 16px; overflow-y: auto; overflow-x: hidden; }
+    .sidebar h2 { font-size: 0.95rem; margin: 0; font-weight: 700; }
     .sidebar .section { margin-bottom: 14px; }
+    .sidebar .section-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .sidebar .section-header .badge { background: var(--brand-100, #e6f2ec); color: var(--brand-700, #144429); border: 1px solid var(--brand-200, #cfe6db); }
+    .sidebar hr { margin: 10px 0; color: #e9ecef; }
     .sidebar .muted { color: #6c757d; font-size: .9rem; }
     .sidebar .list { list-style: none; padding: 0; margin: 0; }
-    .sidebar .list li { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #eee; }
+    .sidebar .list li { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #eee; flex-wrap: wrap; }
+    .sidebar .item-label { min-width: 0; flex: 1 1 100%; display: flex; align-items: center; gap: 8px; }
+    .sidebar .item-label .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; max-width: 160px; }
+    .sidebar .item-actions { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 6px; }
+    .sidebar .item-actions .btn-ico { flex: 0 0 auto; }
+    .btn-ico { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: 6px; font-size: 14px; }
+    .sidebar .section-box { background: #fafafa; border: 1px solid #eef0f2; border-radius: 8px; padding: 10px; }
     #map { flex: 1; }
     /* Enhancements: spacing, actions, toggle */
     .map-wrapper { position: relative; }
@@ -25,28 +34,86 @@
     .collapsed .sidebar-toggle { left: 0; transform: translateX(-50%); }
     .leaflet-top.leaflet-right { margin-right: 10px; }
     .leaflet-top.leaflet-left { margin-left: 10px; }
+    /* Upload nicer visuals */
+    .dropzone { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 10px; background: #fff; text-align: center; color: #64748b; }
+    .dropzone.dragover { background: #f1f5f9; border-color: #94a3b8; }
+    .form-help { font-size: .85rem; color: #6c757d; }
   </style>
   <div class="map-wrapper">
     <aside class="sidebar">
-      <div class="section">
-        <h2>Camada base</h2>
-        <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-road" value="road" checked><label class="form-check-label" for="bm-road">Rodoviário</label></div>
-        <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-sat" value="sat"><label class="form-check-label" for="bm-sat">Satélite</label></div>
-        <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-relief" value="relief"><label class="form-check-label" for="bm-relief">Relevo</label></div>
+      <div class="section section-box">
+        <div class="section-header">
+          <h2>Camada base</h2>
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-collapse="#sec-basemap">Ocultar</button>
+        </div>
+        <div id="sec-basemap">
+          <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-road" value="road" checked><label class="form-check-label" for="bm-road">OSM (Rodoviário)</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-sat" value="sat"><label class="form-check-label" for="bm-sat">Esri Satélite</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-relief" value="relief"><label class="form-check-label" for="bm-relief">OpenTopo (Relevo)</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-esri-street" value="esri_street"><label class="form-check-label" for="bm-esri-street">Esri Ruas</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-esri-topo" value="esri_topo"><label class="form-check-label" for="bm-esri-topo">Esri Topo</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-carto-pos" value="carto_pos"><label class="form-check-label" for="bm-carto-pos">Carto Positron</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-carto-dark" value="carto_dark"><label class="form-check-label" for="bm-carto-dark">Carto DarkMatter</label></div>
+        </div>
       </div>
-      <div class="section">
-        <h2>Meus GeoJSONs</h2>
+      <hr />
+      <div class="section section-box">
+        <div class="section-header">
+          <h2>Minhas camadas</h2>
+          <span class="badge rounded-pill" id="layer-count">0</span>
+        </div>
+        <div class="mb-2">
+          <input type="text" id="layer-search" class="form-control form-control-sm" placeholder="Buscar camada..." />
+        </div>
         <ul id="layers-list" class="list"></ul>
         <p class="muted" id="no-layers" style="display:none">Nenhum arquivo. Envie um abaixo.</p>
       </div>
-      <div class="section">
-        <h2>Novo GeoJSON</h2>
-        <form id="upload-form">
-          <div class="mb-2"><input class="form-control form-control-sm" type="text" name="name" placeholder="Nome opcional" /></div>
-          <div class="mb-2"><input class="form-control form-control-sm" type="file" name="file" accept=".json,.geojson,application/geo+json,application/json" required /></div>
-          <button class="btn btn-primary btn-sm" type="submit">Carregar</button>
-          <div class="form-text">Somente você verá/manipulará seus arquivos.</div>
-        </form>
+      <hr />
+      <div class="section section-box">
+        <div class="section-header">
+          <h2>Novo GeoJSON</h2>
+          <div class="d-flex gap-2">
+            <button id="btn-show-upload" class="btn btn-sm btn-success" type="button">Inserir nova camada</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-collapse="#sec-upload">Ocultar</button>
+          </div>
+        </div>
+        <div id="sec-upload" style="display:none">
+          <div class="mb-2 form-help">Envie um arquivo .geojson/.json ou arraste e solte abaixo.</div>
+          <form id="upload-form" class="mb-2">
+            <div class="mb-2"><input class="form-control form-control-sm" type="text" name="name" placeholder="Nome da camada (opcional)" /></div>
+            <div id="dropzone" class="dropzone mb-2">
+              <i class="fa-solid fa-file-arrow-up me-2"></i>Arraste o arquivo aqui ou clique no campo abaixo
+            </div>
+            <div class="mb-2"><input id="file-input" class="form-control form-control-sm" type="file" name="file" accept=".json,.geojson,application/geo+json,application/json" required /></div>
+            <button class="btn btn-primary btn-sm w-100" type="submit"><i class="fa-solid fa-upload me-2"></i>Carregar</button>
+          </form>
+        </div>
+      </div>
+      <hr />
+      <div class="section section-box">
+        <div class="section-header">
+          <h2>Camada base secundária (GeoServer WMS)</h2>
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-collapse="#sec-wms">Ocultar</button>
+        </div>
+        <div id="sec-wms">
+          <div class="mb-2"><input id="wms-url" class="form-control form-control-sm" type="text" placeholder="URL do WMS (ex: https://meu-geoserver/geoserver/wms)" /></div>
+          <div class="mb-2"><input id="wms-layer" class="form-control form-control-sm" type="text" placeholder="Nome da camada (ex: workspace:layer)" /></div>
+          <div class="mb-2 d-flex align-items-center gap-2">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="wms-visible">
+              <label class="form-check-label" for="wms-visible">Ativar camada WMS</label>
+            </div>
+            <div class="d-flex align-items-center gap-2 ms-auto">
+              <label for="wms-opacity" class="form-label mb-0 small">Opacidade</label>
+              <input id="wms-opacity" type="range" min="0" max="1" step="0.05" value="1" />
+            </div>
+          </div>
+          <div class="form-help">A camada WMS é desenhada por baixo das suas camadas vetoriais.</div>
+        </div>
+      </div>
+      <hr />
+      <div class="d-grid">
+        <button id="btn-save-map" class="btn btn-success btn-sm">Salvar mapa</button>
       </div>
     </aside>
     <div id="map"></div>
@@ -96,8 +163,12 @@
     // Base layers
     const baseLayers = {
       road: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}),
-      sat: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {maxZoom: 17, attribution: 'Tiles &copy; OpenTopoMap'}),
-      relief: L.tileLayer('https://{s}.tile.stamen.com/terrain/{z}/{x}/{y}.jpg', {maxZoom: 18, attribution: 'Stamen Terrain'})
+      sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom: 20, attribution: 'Tiles &copy; Esri'}),
+      relief: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {maxZoom: 17, attribution: 'Tiles &copy; OpenTopoMap'}),
+      esri_street: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {maxZoom: 20, attribution: 'Tiles &copy; Esri'}),
+      esri_topo: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {maxZoom: 20, attribution: 'Tiles &copy; Esri'}),
+      carto_pos: L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {subdomains: 'abcd', maxZoom: 19, attribution: '&copy; CartoDB'}),
+      carto_dark: L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', {subdomains: 'abcd', maxZoom: 19, attribution: '&copy; CartoDB'})
     };
     baseLayers.road.addTo(map);
 
@@ -113,18 +184,30 @@
 
     // My GeoJSON layers state
     const userLayers = new Map(); // id -> layer
+    const layerStyles = new Map(); // id -> style options
     let currentItems = [];
     let selectedCol = null; // atributo selecionado no modal
+    let currentBase = 'road';
 
     function renderList() {
       const list = document.getElementById('layers-list');
       const no = document.getElementById('no-layers');
+      const badge = document.getElementById('layer-count');
+      const q = (document.getElementById('layer-search')?.value || '').toLowerCase();
       list.innerHTML = '';
-      if (!currentItems.length) { no.style.display = 'block'; return; } else { no.style.display = 'none'; }
-      currentItems.forEach(item => {
+      const items = q ? currentItems.filter(it => (it.name || '').toLowerCase().includes(q)) : currentItems;
+      if (!items.length) {
+        no.style.display = 'block';
+        if (badge) badge.textContent = String(currentItems.length);
+        return;
+      } else {
+        no.style.display = 'none';
+        if (badge) badge.textContent = String(currentItems.length);
+      }
+      items.forEach(item => {
         const li = document.createElement('li');
-        const label = document.createElement('label');
-        label.className = 'form-check-label d-flex align-items-center gap-2 flex-grow-1';
+        const label = document.createElement('div');
+        label.className = 'item-label';
         const chk = document.createElement('input');
         chk.className = 'form-check-input me-2';
         chk.type = 'checkbox';
@@ -135,34 +218,54 @@
           if (chk.checked) { layer.addTo(map); } else { map.removeLayer(layer); }
         });
         label.appendChild(chk);
-        label.appendChild(document.createTextNode(item.name));
+        const nameEl = document.createElement('span');
+        nameEl.className = 'name';
+        nameEl.textContent = item.name;
+        label.appendChild(nameEl);
         li.appendChild(label);
         const actions = document.createElement('div');
         actions.className = 'item-actions';
         const btnZoom = document.createElement('button');
         btnZoom.type = 'button';
-        btnZoom.className = 'btn-icon';
-        btnZoom.textContent = 'Zoom';
+        btnZoom.className = 'btn btn-ico btn-outline-secondary';
+        btnZoom.setAttribute('data-bs-toggle', 'tooltip');
+        btnZoom.setAttribute('data-bs-placement', 'top');
+        btnZoom.setAttribute('title', 'Zoom na camada');
+        btnZoom.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
         btnZoom.addEventListener('click', () => {
           const layer = userLayers.get(item.id);
-          if (layer) {
-            try { map.fitBounds(layer.getBounds(), { padding: [20,20] }); } catch (e) {}
-          }
+          if (!layer) return;
+          try { map.fitBounds(layer.getBounds(), { padding: [20,20] }); } catch(e) {}
         });
         const btnEdit = document.createElement('button');
         btnEdit.type = 'button';
-        btnEdit.className = 'btn-icon';
-        btnEdit.textContent = 'Editar';
+        btnEdit.className = 'btn btn-ico btn-outline-secondary';
+        btnEdit.setAttribute('data-bs-toggle', 'tooltip');
+        btnEdit.setAttribute('data-bs-placement', 'top');
+        btnEdit.setAttribute('title', 'Editar geometria');
+        btnEdit.innerHTML = '<i class="fa-solid fa-pen"></i>';
         btnEdit.addEventListener('click', () => { startEdit(item.id); });
         const btnTable = document.createElement('button');
         btnTable.type = 'button';
-        btnTable.className = 'btn-icon';
-        btnTable.textContent = 'Tabela';
+        btnTable.className = 'btn btn-ico btn-outline-secondary';
+        btnTable.setAttribute('data-bs-toggle', 'tooltip');
+        btnTable.setAttribute('data-bs-placement', 'top');
+        btnTable.setAttribute('title', 'Tabela de atributos');
+        btnTable.innerHTML = '<i class="fa-solid fa-table"></i>';
         btnTable.addEventListener('click', () => { openAttrTable(item.id); });
+        const btnStyle = document.createElement('button');
+        btnStyle.type = 'button';
+        btnStyle.className = 'btn btn-ico btn-outline-secondary';
+        btnStyle.setAttribute('data-bs-toggle', 'tooltip');
+        btnStyle.setAttribute('data-bs-placement', 'top');
+        btnStyle.setAttribute('title', 'Estilo da camada');
+        btnStyle.innerHTML = '<i class="fa-solid fa-palette"></i>';
         actions.appendChild(btnZoom);
         actions.appendChild(btnEdit);
         actions.appendChild(btnTable);
+        actions.appendChild(btnStyle);
         li.appendChild(actions);
+        btnStyle.addEventListener('click', () => { openStyleModal(item.id); });
         list.appendChild(li);
       });
     }
@@ -171,7 +274,8 @@
       // remove existing
       const existing = userLayers.get(item.id);
       if (existing) { map.removeLayer(existing); editableGroup.removeLayer(existing); }
-      const layer = L.geoJSON(item.data, { style: { color: '#0d6efd' } }).bindPopup(`<strong>${item.name}</strong>`);
+      const baseStyle = layerStyles.get(item.id) || { color: '#0d6efd', weight: 2, fillColor: '#0d6efd', fillOpacity: 0.2 };
+      const layer = L.geoJSON(item.data, { style: baseStyle }).bindPopup(`<strong>${item.name}</strong>`);
       userLayers.set(item.id, layer);
       layer.addTo(map);
       editableGroup.addLayer(layer);
@@ -210,9 +314,10 @@
     // Basemap switching
     document.querySelectorAll('input[name="basemap"]').forEach(r => {
       r.addEventListener('change', () => {
-        // remove all base layers then add selected
-        Object.values(baseLayers).forEach(l => map.removeLayer(l));
-        baseLayers[r.value].addTo(map);
+        Object.values(baseLayers).forEach(l => { try { map.removeLayer(l); } catch(e){} });
+        const val = r.value;
+        currentBase = val;
+        baseLayers[val].addTo(map);
       });
     });
 
@@ -471,26 +576,54 @@
         if (!f.properties) f.properties = {};
         f.properties[col] = inp.value;
       });
-      try {
-        const resp = await fetch(updateUrl(item.id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: item.data }) });
-        if (!resp.ok) { const msg = await resp.text(); alert('Falha ao salvar: ' + msg); return; }
-        const saved = await resp.json();
-        // update local state and layer
-        const idx = currentItems.findIndex(it => it.id === item.id);
-        if (idx >= 0) currentItems[idx] = saved;
-        addOrReplaceLayer(saved);
-        alert('Atributos salvos com sucesso.');
-      } catch (e) {
-        alert('Erro inesperado ao salvar atributos.');
-      }
+      // Local only (map snapshot), do not persist original file here
+      const idx = currentItems.findIndex(it => it.id === item.id);
+      if (idx >= 0) currentItems[idx].data = item.data;
+      addOrReplaceLayer(currentItems[idx]);
+      alert('Atributos atualizados neste mapa. Lembre-se de usar "Salvar mapa" para manter estas alterações.');
     });
 
     // Initial load
     (function(){
       const sp = new URLSearchParams(location.search);
       const onlyId = parseInt(sp.get('only') || '', 10);
+      const savedId = parseInt(sp.get('saved') || '', 10);
+      const isPublic = sp.get('public') === '1';
+      async function applySavedMap(sdata) {
+        try {
+          // base
+          if (sdata.base && baseLayers[sdata.base]) {
+            Object.values(baseLayers).forEach(l => { try { map.removeLayer(l); } catch(e){} });
+            baseLayers[sdata.base].addTo(map);
+            currentBase = sdata.base;
+          }
+          // view
+          if (sdata.center && typeof sdata.zoom === 'number') {
+            map.setView([sdata.center.lat, sdata.center.lng], sdata.zoom);
+          }
+          // layers
+          if (Array.isArray(sdata.layers)) {
+            currentItems = sdata.layers.map(l => ({ id: l.id, name: l.name, data: l.data }));
+            // preload styles
+            sdata.layers.forEach(l => { if (l.style) layerStyles.set(l.id, l.style); });
+            renderList();
+            // add layers and set visibility
+            sdata.layers.forEach(l => {
+              const layer = addOrReplaceLayer({ id: l.id, name: l.name, data: l.data });
+              if (layer && l.visible === false) { try { map.removeLayer(layer); } catch(e){} }
+            });
+          }
+        } catch (e) {
+          console.error('applySavedMap error', e);
+        }
+      }
       if (!isNaN(onlyId)) {
         loadItems(onlyId);
+      } else if (!isNaN(savedId)) {
+        fetch(`{{ url_for('sig.api_get_map', map_id=0) }}`.replace('0', String(savedId)))
+          .then(r => r.ok ? r.json() : Promise.reject(r))
+          .then(d => applySavedMap(d.data || {}))
+          .catch(() => alert('Não foi possível carregar o mapa salvo.'));
       } else {
         loadItems().then(() => {
           const focusId = parseInt(sp.get('focus') || '', 10);
@@ -502,6 +635,178 @@
           }
         });
       }
+      // Sidebar collapsible sections
+      document.querySelectorAll('[data-collapse]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sel = btn.getAttribute('data-collapse');
+          const tgt = document.querySelector(sel);
+          if (!tgt) return;
+          const isHidden = getComputedStyle(tgt).display === 'none';
+          tgt.style.display = isHidden ? '' : 'none';
+          btn.textContent = isHidden ? 'Ocultar' : 'Mostrar';
+        });
+      });
+      // Search in layers
+      const searchEl = document.getElementById('layer-search');
+      if (searchEl) searchEl.addEventListener('input', renderList);
+      // Save map snapshot (disabled in public)
+    const saveBtn = document.getElementById('btn-save-map');
+    if (!isPublic) saveBtn.addEventListener('click', async () => {
+      const name = prompt('Nome do mapa:', 'Meu mapa');
+      if (!name) return;
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      const layersState = currentItems.map(it => {
+        const layer = userLayers.get(it.id);
+        const visible = layer ? map.hasLayer(layer) : false;
+        return {
+          id: it.id,
+          name: it.name,
+          data: it.data,
+          style: layerStyles.get(it.id) || null,
+          visible,
+        };
+      });
+      const payload = {
+        name,
+        data: {
+          base: currentBase,
+          center: { lat: center.lat, lng: center.lng },
+          zoom,
+          layers: layersState,
+        }
+      };
+      try {
+        const resp = await fetch("{{ url_for('sig.api_save_map') }}", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!resp.ok) { const txt = await resp.text(); alert('Falha ao salvar mapa: ' + txt); return; }
+        alert('Mapa salvo com sucesso. Veja em SIG WEB > Meus mapas.');
+      } catch (e) {
+        alert('Erro ao salvar mapa.');
+      }
+    });
+    if (isPublic) {
+      // Ocultar edição e upload no modo público
+      document.getElementById('btn-save-map')?.closest('.d-grid')?.remove();
+      document.getElementById('sec-upload')?.closest('.section')?.remove();
+    }
+    // Dropzone behaviors
+    const dz = document.getElementById('dropzone');
+    const finput = document.getElementById('file-input');
+    if (dz && finput) {
+      dz.addEventListener('click', () => finput.click());
+      dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+      dz.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dz.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files.length) {
+          finput.files = e.dataTransfer.files;
+        }
+      });
+    }
+    // GeoServer WMS secondary baselayer
+    let wmsLayer = null;
+    const wmsUrlEl = document.getElementById('wms-url');
+    const wmsLayerEl = document.getElementById('wms-layer');
+    const wmsVisibleEl = document.getElementById('wms-visible');
+    const wmsOpacityEl = document.getElementById('wms-opacity');
+    function refreshWMS() {
+      const url = (wmsUrlEl?.value || '').trim();
+      const lname = (wmsLayerEl?.value || '').trim();
+      const vis = !!wmsVisibleEl?.checked;
+      if (wmsLayer) { map.removeLayer(wmsLayer); wmsLayer = null; }
+      if (vis && url && lname) {
+        wmsLayer = L.tileLayer.wms(url, {
+          layers: lname,
+          format: 'image/png',
+          transparent: true,
+          attribution: 'GeoServer WMS'
+        });
+        wmsLayer.setOpacity(parseFloat(wmsOpacityEl?.value || '1'));
+        wmsLayer.addTo(map);
+        // keep below vector layers: add before adding user layers or send to back
+        if (wmsLayer.bringToBack) wmsLayer.bringToBack();
+      }
+    }
+    wmsVisibleEl?.addEventListener('change', refreshWMS);
+    wmsUrlEl?.addEventListener('change', refreshWMS);
+    wmsLayerEl?.addEventListener('change', refreshWMS);
+    wmsOpacityEl?.addEventListener('input', () => {
+      if (wmsLayer) wmsLayer.setOpacity(parseFloat(wmsOpacityEl.value));
+    });
+      // Show upload on demand
+      const btnShowUpload = document.getElementById('btn-show-upload');
+      if (btnShowUpload) btnShowUpload.addEventListener('click', () => {
+        const up = document.getElementById('sec-upload');
+        if (up) up.style.display = '';
+      });
+      // Initialize tooltips (Bootstrap 5)
+      const tSel = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      tSel.forEach(function (el) { try { new bootstrap.Tooltip(el); } catch(e){} });
     })();
+  </script>
+
+  <!-- Style Modal -->
+  <div class="modal fade" id="styleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Estilo da camada</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label mb-0 small">Borda</label>
+              <input type="color" class="form-control form-control-sm" id="st-color" />
+            </div>
+            <div class="col-6">
+              <label class="form-label mb-0 small">Espessura</label>
+              <input type="number" min="1" max="10" class="form-control form-control-sm" id="st-weight" value="2" />
+            </div>
+            <div class="col-6">
+              <label class="form-label mb-0 small">Preenchimento</label>
+              <input type="color" class="form-control form-control-sm" id="st-fillColor" />
+            </div>
+            <div class="col-6">
+              <label class="form-label mb-0 small">Opacidade</label>
+              <input type="number" step="0.1" min="0" max="1" class="form-control form-control-sm" id="st-fillOpacity" value="0.2" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-apply-style">Aplicar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    let styleItemId = null;
+    function openStyleModal(itemId) {
+      styleItemId = itemId;
+      const s = layerStyles.get(itemId) || { color: '#0d6efd', weight: 2, fillColor: '#0d6efd', fillOpacity: 0.2 };
+      document.getElementById('st-color').value = s.color || '#0d6efd';
+      document.getElementById('st-weight').value = s.weight || 2;
+      document.getElementById('st-fillColor').value = s.fillColor || '#0d6efd';
+      document.getElementById('st-fillOpacity').value = typeof s.fillOpacity === 'number' ? s.fillOpacity : 0.2;
+      const m = new bootstrap.Modal(document.getElementById('styleModal'));
+      m.show();
+    }
+    document.getElementById('btn-apply-style').addEventListener('click', () => {
+      if (!styleItemId) return;
+      const s = {
+        color: document.getElementById('st-color').value,
+        weight: Number(document.getElementById('st-weight').value || 2),
+        fillColor: document.getElementById('st-fillColor').value,
+        fillOpacity: Number(document.getElementById('st-fillOpacity').value || 0.2),
+      };
+      layerStyles.set(styleItemId, s);
+      const layer = userLayers.get(styleItemId);
+      try { if (layer && layer.setStyle) layer.setStyle(s); } catch(e){}
+      const modalEl = document.getElementById('styleModal');
+      bootstrap.Modal.getInstance(modalEl)?.hide();
+      styleItemId = null;
+    });
   </script>
 {% endblock %}

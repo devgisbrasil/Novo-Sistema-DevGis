@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Meus mapas{% endblock %}
+{% block content %}
+<main class="container py-3">
+  <h1 class="h4 mb-3">Meus mapas</h1>
+  {% if not items or items|length == 0 %}
+    <div class="alert alert-info">Você ainda não salvou nenhum mapa.</div>
+  {% else %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th class="text-nowrap">Criado em</th>
+            <th class="text-end">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in items %}
+          <tr>
+            <td class="text-truncate" style="max-width: 320px;" title="{{ m.name }}">{{ m.name }}</td>
+            <td class="text-nowrap">{{ m.created_at.strftime('%d/%m/%Y %H:%M') if m.created_at else '' }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('sig.map') }}?saved={{ m.id }}">Abrir</a>
+              <button class="btn btn-sm btn-outline-secondary btn-publish" data-id="{{ m.id }}">Gerar link público</button>
+              <button class="btn btn-sm btn-outline-danger" data-id="{{ m.id }}" data-action="delete">Excluir</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</main>
+<script>
+document.addEventListener('click', async (e) => {
+  const pubBtn = e.target.closest('.btn-publish');
+  if (pubBtn) {
+    const id = pubBtn.getAttribute('data-id');
+    try {
+      const resp = await fetch(`/sig/api/maps/${id}/publish`, { method: 'POST' });
+      if (!resp.ok) { const t = await resp.text(); alert('Falha ao publicar: ' + t); return; }
+      const data = await resp.json();
+      const url = data.public_url;
+      await navigator.clipboard.writeText(url);
+      alert('Link público gerado e copiado: ' + url);
+    } catch (e) {
+      alert('Erro ao publicar.');
+    }
+  }
+});
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-action="delete"]');
+  if (!btn) return;
+  const id = btn.getAttribute('data-id');
+  if (!id) return;
+  if (!confirm('Excluir este mapa salvo?')) return;
+  try {
+    const resp = await fetch(`{{ url_for('sig.api_delete_map', map_id=0) }}`.replace('0', id), { method: 'DELETE' });
+    if (!resp.ok) { const txt = await resp.text(); alert('Falha ao excluir: ' + txt); return; }
+    location.reload();
+  } catch (e) {
+    alert('Erro ao excluir.');
+  }
+});
+</script>
+{% endblock %}

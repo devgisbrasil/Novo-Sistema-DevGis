@@ -27,6 +27,21 @@ class User(db.Model, UserMixin):
         return f"<User {self.email}>"
 
 
+class SavedMap(db.Model):
+    __tablename__ = "saved_maps"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    data = db.Column(db.JSON, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=func.now(), nullable=False)
+    public_token = db.Column(db.String(64), unique=True, nullable=True)
+
+    user = relationship("User")
+
+    def __repr__(self):
+        return f"<SavedMap {self.id} {self.name}>"
+
+
 class Role(db.Model):
     __tablename__ = "roles"
     id = db.Column(db.Integer, primary_key=True)

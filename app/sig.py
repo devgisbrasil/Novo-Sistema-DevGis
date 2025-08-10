@@ -1,9 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from . import db
-from .models import GeoJSONFile
+from .models import GeoJSONFile, SavedMap
 import json
 from werkzeug.utils import secure_filename
+import secrets
 
 sig_bp = Blueprint("sig", __name__, url_prefix="/sig")
 
@@ -23,6 +24,85 @@ def _validate_geojson(obj):
 @login_required
 def index():
     return render_template("sig/index.html")
+
+
+@sig_bp.get("/maps")
+@login_required
+def maps():
+    # simple page listing user's saved maps
+    items = SavedMap.query.filter_by(user_id=current_user.id).order_by(SavedMap.created_at.desc()).all()
+    return render_template("sig/maps.html", items=items)
+
+
+@sig_bp.get("/api/maps")
+@login_required
+def api_list_maps():
+    maps = SavedMap.query.filter_by(user_id=current_user.id).order_by(SavedMap.created_at.desc()).all()
+    return jsonify([
+        {"id": m.id, "name": m.name, "created_at": m.created_at.isoformat()} for m in maps
+    ])
+
+
+@sig_bp.post("/api/maps")
+@login_required
+def api_save_map():
+    try:
+        payload = request.get_json(force=True)
+        name = (payload or {}).get("name") or "Mapa sem título"
+        data = (payload or {}).get("data") or {}
+        rec = SavedMap(user_id=current_user.id, name=name, data=data)
+        db.session.add(rec)
+        db.session.commit()
+        return jsonify({"id": rec.id, "name": rec.name, "created_at": rec.created_at.isoformat()}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+
+
+@sig_bp.get("/api/maps/<int:map_id>")
+@login_required
+def api_get_map(map_id: int):
+    m = SavedMap.query.get_or_404(map_id)
+    if m.user_id != current_user.id:
+        return jsonify({"error": "forbidden"}), 403
+    return jsonify({
+        "id": m.id,
+        "name": m.name,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+        "data": m.data,
+        "public_token": m.public_token,
+    })
+
+
+@sig_bp.delete("/api/maps/<int:map_id>")
+@login_required
+def api_delete_map(map_id: int):
+    m = SavedMap.query.get_or_404(map_id)
+    if m.user_id != current_user.id:
+        return jsonify({"error": "forbidden"}), 403
+    db.session.delete(m)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@sig_bp.post("/api/maps/<int:map_id>/publish")
+@login_required
+def api_publish_map(map_id: int):
+    m = SavedMap.query.get_or_404(map_id)
+    if m.user_id != current_user.id:
+        return jsonify({"error": "forbidden"}), 403
+    if not m.public_token:
+        m.public_token = secrets.token_urlsafe(24)
+        db.session.commit()
+    public_url = url_for('sig.public_map', token=m.public_token, _external=True)
+    return jsonify({"public_url": public_url, "token": m.public_token})
+
+
+@sig_bp.get("/public/<token>")
+def public_map(token: str):
+    m = SavedMap.query.filter_by(public_token=token).first_or_404()
+    # Render the regular map page but in readonly/public mode via query param
+    return redirect(url_for('sig.map') + f"?saved={m.id}&public=1")
 
 
 @sig_bp.route("/files", methods=["GET", "POST"])
