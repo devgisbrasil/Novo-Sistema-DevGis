@@ -1,10 +1,19 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, abort, make_response
 from flask_login import login_required, current_user
 from . import db
 from .models import GeoJSONFile, SavedMap
 import json
+import os
+import tempfile
 from werkzeug.utils import secure_filename
 import secrets
+from fiona.io import ZipMemoryFile
+import fiona
+from fiona.transform import transform_geom
+from shapely.geometry import shape, mapping
+import geopandas as gpd
+from io import BytesIO
+import zipfile
 
 sig_bp = Blueprint("sig", __name__, url_prefix="/sig")
 
@@ -18,6 +27,111 @@ def _validate_geojson(obj):
         return isinstance(obj.get("features"), list)
     # Allow Feature or Geometry too
     return t in {"Feature", "Point", "LineString", "Polygon", "MultiPoint", "MultiLineString", "MultiPolygon"}
+
+
+def _convert_to_geojson(file_content, filename):
+    """Convert various formats to GeoJSON."""
+    _, ext = os.path.splitext(filename.lower())
+    
+    if ext == '.geojson' or ext == '.json':
+        try:
+            data = json.loads(file_content)
+            if _validate_geojson(data):
+                return data
+        except json.JSONDecodeError:
+            pass
+    
+    # For KML and SHP, we'll use fiona/geopandas
+    temp_dir = tempfile.mkdtemp()
+    temp_input = os.path.join(temp_dir, f'input{ext}')
+    
+    try:
+        # Write the uploaded content to a temporary file
+        with open(temp_input, 'wb') as f:
+            if isinstance(file_content, str):
+                file_content = file_content.encode('utf-8')
+            f.write(file_content)
+        
+        # Read the file with fiona/geopandas
+        if ext == '.kml':
+            gdf = gpd.read_file(temp_input, driver='KML')
+        elif ext in ['.shp', '.zip']:
+            gdf = gpd.read_file(temp_input)
+        else:
+            return None
+            
+        # Convert to GeoJSON
+        if not gdf.empty:
+            # Ensure we're using WGS84 (EPSG:4326)
+            if gdf.crs and gdf.crs.to_epsg() != 4326:
+                gdf = gdf.to_crs(epsg=4326)
+            return json.loads(gdf.to_json())
+            
+    except Exception as e:
+        print(f"Error converting file: {e}")
+        return None
+    finally:
+        # Clean up temporary files
+        try:
+            import shutil
+            shutil.rmtree(temp_dir)
+        except:
+            pass
+    
+    return None
+
+
+def _create_export_file(geojson_data, export_format):
+    """Convert GeoJSON to the requested export format."""
+    if not geojson_data:
+        return None, None
+        
+    temp_dir = tempfile.mkdtemp()
+    
+    try:
+        gdf = gpd.GeoDataFrame.from_features(geojson_data.get('features', []))
+        
+        if export_format == 'geojson':
+            output = BytesIO()
+            output.write(json.dumps(geojson_data, ensure_ascii=False).encode('utf-8'))
+            output.seek(0)
+            return output, 'application/geo+json'
+            
+        elif export_format == 'kml':
+            output = BytesIO()
+            gdf.to_file(output, driver='KML')
+            output.seek(0)
+            return output, 'application/vnd.google-earth.kml+xml'
+            
+        elif export_format == 'shp':
+            # Create a zip file with all the shapefile components
+            zip_buffer = BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                # Save to a temp directory first
+                temp_shp = os.path.join(temp_dir, 'export.shp')
+                gdf.to_file(temp_shp, driver='ESRI Shapefile', encoding='utf-8')
+                
+                # Add all shapefile components to the zip
+                for ext in ['.shp', '.shx', '.dbf', '.prj', '.cpg']:
+                    file_path = os.path.join(temp_dir, f'export{ext}')
+                    if os.path.exists(file_path):
+                        zipf.write(file_path, f'export{ext}')
+            
+            zip_buffer.seek(0)
+            return zip_buffer, 'application/zip'
+            
+    except Exception as e:
+        print(f"Error creating export file: {e}")
+        return None, None
+    finally:
+        # Clean up temporary files
+        try:
+            import shutil
+            shutil.rmtree(temp_dir)
+        except:
+            pass
+    
+    return None, None
 
 
 @sig_bp.get("/")
@@ -111,36 +225,86 @@ def files():
         try:
             if uploaded and uploaded.filename:
                 filename = secure_filename(uploaded.filename)
-                content = uploaded.read().decode("utf-8")
-                data = json.loads(content)
+                content = uploaded.read()
+                
+                # Try to parse as JSON first
+                try:
+                    data = json.loads(content.decode('utf-8'))
+                    if not _validate_geojson(data):
+                        # If not valid GeoJSON, try to convert
+                        converted = _convert_to_geojson(content, filename)
+                        if converted:
+                            data = converted
+                        else:
+                            flash("Arquivo não é um GeoJSON, KML ou SHP válido.", "danger")
+                            return redirect(url_for("sig.files"))
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    # If not JSON, try to convert from KML/SHP
+                    converted = _convert_to_geojson(content, filename)
+                    if converted:
+                        data = converted
+                    else:
+                        flash("Arquivo não é um GeoJSON, KML ou SHP válido.", "danger")
+                        return redirect(url_for("sig.files"))
+                
                 if not name:
-                    name = filename
+                    name = os.path.splitext(filename)[0]  # Remove extension
+                    
             elif raw:
-                data = json.loads(raw)
+                try:
+                    data = json.loads(raw)
+                    if not _validate_geojson(data):
+                        flash("GeoJSON inválido.", "danger")
+                        return redirect(url_for("sig.files"))
+                except json.JSONDecodeError:
+                    flash("Conteúdo não é um JSON válido.", "danger")
+                    return redirect(url_for("sig.files"))
+                
                 if not name:
-                    name = "GeoJSON sem nome"
+                    name = "Camada sem nome"
             else:
                 flash("Selecione um arquivo ou cole um GeoJSON.", "warning")
-                return redirect(url_for("sig.files"))
-
-            if not _validate_geojson(data):
-                flash("GeoJSON inválido.", "danger")
                 return redirect(url_for("sig.files"))
 
             rec = GeoJSONFile(user_id=current_user.id, name=name, data=data)
             db.session.add(rec)
             db.session.commit()
-            flash("GeoJSON salvo com sucesso.", "success")
-        except json.JSONDecodeError:
-            flash("Conteúdo não é um JSON válido.", "danger")
-        except Exception:
+            flash("Camada salva com sucesso.", "success")
+        except Exception as e:
             db.session.rollback()
-            flash("Erro ao salvar GeoJSON.", "danger")
+            print(f"Error: {str(e)}")
+            flash("Erro ao processar o arquivo. Verifique o formato e tente novamente.", "danger")
         return redirect(url_for("sig.files"))
 
     # GET
     files = GeoJSONFile.query.filter_by(user_id=current_user.id).order_by(GeoJSONFile.created_at.desc()).all()
     return render_template("sig/files.html", files=files)
+
+
+@sig_bp.get("/files/<int:file_id>/download/<format>")
+@login_required
+def download_file(file_id: int, format: str):
+    """Download a file in the specified format (geojson, kml, shp)."""
+    if format not in ['geojson', 'kml', 'shp']:
+        abort(400, "Formato inválido. Use 'geojson', 'kml' ou 'shp'.")
+    
+    rec = GeoJSONFile.query.filter_by(id=file_id, user_id=current_user.id).first_or_404()
+    
+    output, mime_type = _create_export_file(rec.data, format)
+    if not output:
+        abort(500, "Erro ao gerar arquivo para download.")
+    
+    filename = f"{secure_filename(rec.name)}.{format}"
+    if format == 'shp':
+        filename = f"{secure_filename(rec.name)}.zip"
+    
+    return send_file(
+        output,
+        mimetype=mime_type,
+        as_attachment=True,
+        download_name=filename,
+        max_age=0
+    )
 
 
 @sig_bp.post("/files/<int:file_id>/delete")

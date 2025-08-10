@@ -10,3 +10,10 @@ Flask-Migrate==4.0.7
 Flask-Admin==1.6.1
 Flask-Bcrypt==1.0.1
 gunicorn==22.0.0
+
+# Geospatial
+fiona==1.9.6
+shapely==2.0.4
+gdal==3.4.1
+geopandas==0.14.4
+pyproj==3.6.1

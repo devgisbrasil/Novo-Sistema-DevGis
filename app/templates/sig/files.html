@@ -1,81 +1,252 @@
 {% extends 'base.html' %}
 {% block content %}
   <div class="d-flex align-items-center justify-content-between mb-3">
-    <h1 class="h5 mb-0">SIG • Meus GeoJSONs</h1>
-    <form method="post" action="{{ url_for('sig.load_examples') }}">
-      <button class="btn btn-outline-secondary btn-sm" type="submit">Carregar exemplos</button>
-    </form>
-  </div>
-
-  <div class="row g-3">
-    <div class="col-12 col-lg-6">
-      <div class="card h-100">
-        <div class="card-header">Upload de arquivo</div>
-        <div class="card-body">
-          <form method="post" enctype="multipart/form-data">
-            <div class="mb-2">
-              <label class="form-label">Nome</label>
-              <input class="form-control" type="text" name="name" placeholder="Nome opcional" />
-            </div>
-            <div class="mb-2">
-              <input class="form-control" type="file" name="file" accept=".json,.geojson,application/geo+json,application/json" />
-            </div>
-            <button class="btn btn-primary" type="submit">Enviar</button>
-          </form>
-        </div>
-      </div>
-    </div>
-    <div class="col-12 col-lg-6">
-      <div class="card h-100">
-        <div class="card-header">Colar GeoJSON (texto)</div>
-        <div class="card-body">
-          <form method="post">
-            <div class="mb-2">
-              <label class="form-label">Nome</label>
-              <input class="form-control" type="text" name="name" placeholder="Nome opcional" />
-            </div>
-            <div class="mb-2">
-              <textarea class="form-control" name="raw_json" rows="8" placeholder='Cole aqui um GeoJSON válido'></textarea>
-            </div>
-            <button class="btn btn-primary" type="submit">Salvar</button>
-          </form>
-        </div>
-      </div>
+    <h1 class="h5 mb-0">SIG • Minhas camadas</h1>
+    <div>
+      <button id="btn-new-layer" class="btn btn-primary btn-sm">
+        <i class="fas fa-plus me-1"></i> Nova camada
+      </button>
+      <form method="post" action="{{ url_for('sig.load_examples') }}" class="d-inline ms-2">
+        <button class="btn btn-outline-secondary btn-sm" type="submit">
+          <i class="fas fa-lightbulb me-1"></i> Carregar exemplos
+        </button>
+      </form>
     </div>
   </div>
 
-  <div class="card mt-3">
-    <div class="card-header">Meus arquivos</div>
+  <!-- Upload Forms (initially hidden) -->
+  <div id="upload-forms" style="display: none;">
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Adicionar nova camada</span>
+        <button type="button" class="btn-close" id="btn-close-forms"></button>
+      </div>
+      <div class="card-body">
+        <ul class="nav nav-tabs mb-3" id="uploadTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="file-tab" data-bs-toggle="tab" data-bs-target="#file-tab-pane" type="button" role="tab">
+              <i class="fas fa-upload me-1"></i> Enviar arquivo
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-tab-pane" type="button" role="tab">
+              <i class="fas fa-font me-1"></i> Colar GeoJSON
+            </button>
+          </li>
+        </ul>
+        <div class="tab-content" id="uploadTabsContent">
+          <!-- File Upload Tab -->
+          <div class="tab-pane fade show active" id="file-tab-pane" role="tabpanel" tabindex="0">
+            <form method="post" enctype="multipart/form-data" id="file-upload-form">
+              <div class="mb-3">
+                <label class="form-label">Nome da camada</label>
+                <input class="form-control" type="text" name="name" placeholder="Opcional" />
+                <div class="form-text">Deixe em branco para usar o nome do arquivo</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Arquivo (GeoJSON, KML, SHP)</label>
+                <input class="form-control" type="file" name="file" accept=".json,.geojson,.kml,.kmz,.shp,.zip,application/geo+json,application/json,application/vnd.google-earth.kml+xml,application/zip" required />
+                <div class="form-text">Formatos suportados: GeoJSON, KML/KMZ, Shapefile (ZIP)</div>
+              </div>
+              <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-outline-secondary me-2" id="btn-cancel-upload">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-upload me-1"></i> Enviar
+                </button>
+              </div>
+            </form>
+          </div>
+          
+          <!-- Text Input Tab -->
+          <div class="tab-pane fade" id="text-tab-pane" role="tabpanel" tabindex="0">
+            <form method="post" id="text-upload-form">
+              <div class="mb-3">
+                <label class="form-label">Nome da camada</label>
+                <input class="form-control" type="text" name="name" placeholder="Obrigatório" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Cole seu GeoJSON</label>
+                <textarea class="form-control font-monospace" name="raw_json" rows="10" placeholder='{"type": "FeatureCollection", "features": [...]}' required></textarea>
+              </div>
+              <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-outline-secondary me-2" id="btn-cancel-text">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Files List -->
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>Minhas camadas</span>
+      <div class="input-group input-group-sm" style="width: 250px;">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input type="text" id="search-layers" class="form-control" placeholder="Buscar camadas..." />
+      </div>
+    </div>
     <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover table-sm mb-0">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th class="text-nowrap">Criado em</th>
-              <th class="text-end">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for f in files %}
+      {% if files %}
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
               <tr>
-                <td>{{ f.name }}</td>
-                <td class="text-nowrap">{{ f.created_at }}</td>
-                <td class="text-end">
-                  <a class="btn btn-outline-primary btn-sm me-1" href="{{ url_for('sig.map_view') }}?only={{ f.id }}" target="_blank">Visualizar</a>
-                  <form method="post" action="{{ url_for('sig.delete_file', file_id=f.id) }}" onsubmit="return confirm('Remover este arquivo?');" class="d-inline">
-                    <button class="btn btn-outline-danger btn-sm" type="submit">Remover</button>
-                  </form>
-                </td>
+                <th>Nome</th>
+                <th class="text-nowrap text-center">Tipo</th>
+                <th class="text-nowrap">Criado em</th>
+                <th class="text-end">Ações</th>
               </tr>
-            {% else %}
-              <tr>
-                <td colspan="3" class="text-center text-muted">Nenhum arquivo ainda.</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {% for f in files %}
+                <tr class="layer-item">
+                  <td class="align-middle">
+                    <div class="d-flex align-items-center">
+                      <i class="fas fa-layer-group text-muted me-2"></i>
+                      <span class="layer-name">{{ f.name }}</span>
+                    </div>
+                  </td>
+                  <td class="text-center align-middle">
+                    <span class="badge bg-light text-dark">GeoJSON</span>
+                  </td>
+                  <td class="text-nowrap align-middle">{{ f.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                  <td class="text-end align-middle">
+                    <div class="btn-group btn-group-sm" role="group">
+                      <a href="{{ url_for('sig.map_view') }}?only={{ f.id }}" 
+                         class="btn btn-outline-primary" 
+                         title="Visualizar no mapa" 
+                         target="_blank">
+                        <i class="fas fa-eye"></i>
+                      </a>
+                      <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary dropdown-toggle" 
+                                data-bs-toggle="dropdown" aria-expanded="false"
+                                title="Baixar">
+                          <i class="fas fa-download"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                          <li>
+                            <a class="dropdown-item" href="{{ url_for('sig.download_file', file_id=f.id, format='geojson') }}">
+                              <i class="fas fa-file-code me-2"></i> GeoJSON
+                            </a>
+                          </li>
+                          <li>
+                            <a class="dropdown-item" href="{{ url_for('sig.download_file', file_id=f.id, format='kml') }}">
+                              <i class="fas fa-map-marked-alt me-2"></i> KML
+                            </a>
+                          </li>
+                          <li>
+                            <a class="dropdown-item" href="{{ url_for('sig.download_file', file_id=f.id, format='shp') }}">
+                              <i class="fas fa-shapes me-2"></i> Shapefile (ZIP)
+                            </a>
+                          </li>
+                        </ul>
+                      </div>
+                      <form method="post" action="{{ url_for('sig.delete_file', file_id=f.id) }}" 
+                            onsubmit="return confirm('Tem certeza que deseja remover esta camada?');" 
+                            class="d-inline">
+                        <button type="submit" class="btn btn-outline-danger" title="Remover">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-center py-5">
+          <div class="mb-3">
+            <i class="fas fa-layer-group fa-3x text-muted"></i>
+          </div>
+          <h5 class="text-muted">Nenhuma camada encontrada</h5>
+          <p class="text-muted">Clique em "Nova camada" para começar</p>
+        </div>
+      {% endif %}
     </div>
   </div>
+
+  <style>
+    .layer-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 300px;
+      display: inline-block;
+    }
+    .table td {
+      vertical-align: middle;
+    }
+    .btn-group-sm > .btn {
+      padding: 0.25rem 0.5rem;
+    }
+    .dropdown-menu {
+      font-size: 0.875rem;
+    }
+    .dropdown-item {
+      padding: 0.25rem 1rem;
+    }
+  </style>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Toggle upload forms
+      const btnNewLayer = document.getElementById('btn-new-layer');
+      const uploadForms = document.getElementById('upload-forms');
+      const btnCloseForms = document.getElementById('btn-close-forms');
+      const btnCancelUpload = document.getElementById('btn-cancel-upload');
+      const btnCancelText = document.getElementById('btn-cancel-text');
+      
+      function toggleForms(show) {
+        uploadForms.style.display = show ? 'block' : 'none';
+        if (show) {
+          uploadForms.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+      
+      btnNewLayer.addEventListener('click', () => toggleForms(true));
+      btnCloseForms.addEventListener('click', () => toggleForms(false));
+      btnCancelUpload.addEventListener('click', () => toggleForms(false));
+      btnCancelText.addEventListener('click', () => toggleForms(false));
+      
+      // Search functionality
+      const searchInput = document.getElementById('search-layers');
+      if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+          const searchTerm = e.target.value.toLowerCase();
+          const rows = document.querySelectorAll('.layer-item');
+          
+          rows.forEach(row => {
+            const name = row.querySelector('.layer-name').textContent.toLowerCase();
+            row.style.display = name.includes(searchTerm) ? '' : 'none';
+          });
+        });
+      }
+      
+      // File input shows filename
+      const fileInput = document.querySelector('input[type="file"]');
+      if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+          const fileName = e.target.files[0]?.name || 'Nenhum arquivo selecionado';
+          const label = this.parentElement.querySelector('.form-text');
+          if (label) {
+            label.textContent = `Arquivo: ${fileName}`;
+          }
+        });
+      }
+      
+      // Initialize tooltips
+      const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+      tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+    });
+  </script>
 {% endblock %}
