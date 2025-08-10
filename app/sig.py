@@ -26,12 +26,7 @@ def index():
     return render_template("sig/index.html")
 
 
-@sig_bp.get("/maps")
-@login_required
-def maps():
-    # simple page listing user's saved maps
-    items = SavedMap.query.filter_by(user_id=current_user.id).order_by(SavedMap.created_at.desc()).all()
-    return render_template("sig/maps.html", items=items)
+ 
 
 
 @sig_bp.get("/api/maps")
@@ -102,7 +97,7 @@ def api_publish_map(map_id: int):
 def public_map(token: str):
     m = SavedMap.query.filter_by(public_token=token).first_or_404()
     # Render the regular map page but in readonly/public mode via query param
-    return redirect(url_for('sig.map') + f"?saved={m.id}&public=1")
+    return redirect(url_for('sig.map_view') + f"?saved={m.id}&public=1")
 
 
 @sig_bp.route("/files", methods=["GET", "POST"])
