@@ -11,6 +11,18 @@
     .sidebar .list { list-style: none; padding: 0; margin: 0; }
     .sidebar .list li { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #eee; }
     #map { flex: 1; }
+    /* Enhancements: spacing, actions, toggle */
+    .map-wrapper { position: relative; }
+    .sidebar .list li { gap: 8px; }
+    .sidebar .item-actions { display: flex; gap: 6px; }
+    .sidebar .btn-icon { border: 1px solid #e5e7eb; background: #f8f9fa; padding: 2px 6px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+    .sidebar .btn-icon:hover { background: #e9ecef; }
+    .sidebar-toggle { position: absolute; left: 300px; top: 12px; z-index: 500; transform: translateX(-50%); }
+    .sidebar-toggle .btn { padding: 4px 8px; font-size: 12px; }
+    .collapsed .sidebar { width: 0; padding: 0; border-right: none; }
+    .collapsed .sidebar-toggle { left: 0; transform: translateX(-50%); }
+    .leaflet-top.leaflet-right { margin-right: 10px; }
+    .leaflet-top.leaflet-left { margin-left: 10px; }
   </style>
   <div class="map-wrapper">
     <aside class="sidebar">
@@ -36,6 +48,9 @@
       </div>
     </aside>
     <div id="map"></div>
+    <div class="sidebar-toggle">
+      <button type="button" id="btn-toggle-sidebar" class="btn btn-light border">⟨⟩</button>
+    </div>
   </div>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -43,7 +58,8 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
   <script>
-    const map = L.map('map');
+    const map = L.map('map', { zoomControl: false });
+    L.control.zoom({ position: 'topright' }).addTo(map);
     // Base layers
     const baseLayers = {
       road: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}),
@@ -53,15 +69,15 @@
     baseLayers.road.addTo(map);
     map.setView([0, 0], 2);
 
-    // Draw tools (outside sidebar)
-    const drawnItems = new L.FeatureGroup();
-    map.addLayer(drawnItems);
+    // Draw tools and editable group
+    const editableGroup = new L.FeatureGroup();
+    map.addLayer(editableGroup);
     const drawControl = new L.Control.Draw({
-      edit: { featureGroup: drawnItems },
+      edit: { featureGroup: editableGroup },
       draw: { polygon: true, polyline: true, rectangle: true, circle: true, marker: true }
     });
     map.addControl(drawControl);
-    map.on(L.Draw.Event.CREATED, function (e) { drawnItems.addLayer(e.layer); });
+    map.on(L.Draw.Event.CREATED, function (e) { editableGroup.addLayer(e.layer); });
 
     // My GeoJSON layers state
     const userLayers = new Map(); // id -> layer
@@ -75,7 +91,7 @@
       currentItems.forEach(item => {
         const li = document.createElement('li');
         const label = document.createElement('label');
-        label.className = 'form-check-label';
+        label.className = 'form-check-label d-flex align-items-center gap-2 flex-grow-1';
         const chk = document.createElement('input');
         chk.className = 'form-check-input me-2';
         chk.type = 'checkbox';
@@ -88,6 +104,26 @@
         label.appendChild(chk);
         label.appendChild(document.createTextNode(item.name));
         li.appendChild(label);
+        const actions = document.createElement('div');
+        actions.className = 'item-actions';
+        const btnZoom = document.createElement('button');
+        btnZoom.type = 'button';
+        btnZoom.className = 'btn-icon';
+        btnZoom.textContent = 'Zoom';
+        btnZoom.addEventListener('click', () => {
+          const layer = userLayers.get(item.id);
+          if (layer) {
+            try { map.fitBounds(layer.getBounds(), { padding: [20,20] }); } catch (e) {}
+          }
+        });
+        const btnEdit = document.createElement('button');
+        btnEdit.type = 'button';
+        btnEdit.className = 'btn-icon';
+        btnEdit.textContent = 'Editar';
+        btnEdit.addEventListener('click', () => { startEdit(item.id); });
+        actions.appendChild(btnZoom);
+        actions.appendChild(btnEdit);
+        li.appendChild(actions);
         list.appendChild(li);
       });
     }
@@ -95,10 +131,11 @@
     function addOrReplaceLayer(item) {
       // remove existing
       const existing = userLayers.get(item.id);
-      if (existing) { map.removeLayer(existing); }
+      if (existing) { map.removeLayer(existing); editableGroup.removeLayer(existing); }
       const layer = L.geoJSON(item.data, { style: { color: '#0d6efd' } }).bindPopup(`<strong>${item.name}</strong>`);
       userLayers.set(item.id, layer);
       layer.addTo(map);
+      editableGroup.addLayer(layer);
       return layer;
     }
 
@@ -144,7 +181,163 @@
       form.reset();
     });
 
+    // Sidebar toggle
+    const wrapper = document.querySelector('.map-wrapper');
+    const btnToggle = document.getElementById('btn-toggle-sidebar');
+    btnToggle.addEventListener('click', () => {
+      wrapper.classList.toggle('collapsed');
+      setTimeout(() => map.invalidateSize(), 220);
+    });
+
+    // Back button control
+    const BackControl = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd: function() {
+        const container = L.DomUtil.create('div', 'leaflet-bar');
+        const a = L.DomUtil.create('a', '', container);
+        a.href = '#'; a.title = 'Voltar'; a.innerHTML = '↩';
+        L.DomEvent.on(a, 'click', L.DomEvent.stopPropagation)
+                  .on(a, 'click', L.DomEvent.preventDefault)
+                  .on(a, 'click', () => { if (history.length > 1) history.back(); else window.location = "{{ url_for('sig.index') }}"; });
+        return container;
+      }
+    });
+    map.addControl(new BackControl());
+
+    // --- Edit session control (Salvar / Cancelar) ---
+    const EditSessionControl = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd: function() {
+        const container = L.DomUtil.create('div', 'leaflet-bar');
+        container.style.display = 'none'; // hidden by default
+        const btnSave = L.DomUtil.create('a', '', container);
+        btnSave.href = '#'; btnSave.title = 'Salvar edições'; btnSave.innerHTML = '💾';
+        const btnCancel = L.DomUtil.create('a', '', container);
+        btnCancel.href = '#'; btnCancel.title = 'Cancelar edições'; btnCancel.innerHTML = '✖';
+        L.DomEvent.on(btnSave, 'click', L.DomEvent.stopPropagation)
+                  .on(btnSave, 'click', L.DomEvent.preventDefault)
+                  .on(btnSave, 'click', onSaveEdits);
+        L.DomEvent.on(btnCancel, 'click', L.DomEvent.stopPropagation)
+                  .on(btnCancel, 'click', L.DomEvent.preventDefault)
+                  .on(btnCancel, 'click', onCancelEdits);
+        this._container = container;
+        return container;
+      },
+      setVisible: function(v) {
+        if (this._container) this._container.style.display = v ? '' : 'none';
+      }
+    });
+    const editSessionControl = new EditSessionControl();
+    map.addControl(editSessionControl);
+
+    // --- Edit session logic ---
+    let editingItemId = null;
+    let originalGeoJSON = null;
+    let editedDirty = false;
+    const apiUpdateBase = "{{ url_for('sig.api_update_file', file_id=0) }}"; // e.g. /sig/api/files/0
+    function updateUrl(id) { return apiUpdateBase.replace(/0$/, String(id)); }
+
+    map.on('draw:edited', () => { editedDirty = true; });
+
+    function enableDrawEditMode() {
+      try {
+        if (drawControl && drawControl._toolbars && drawControl._toolbars.edit && drawControl._toolbars.edit._modes.edit) {
+          drawControl._toolbars.edit._modes.edit.handler.enable();
+        }
+      } catch (e) {}
+    }
+
+    function disableDrawEditMode() {
+      try {
+        if (drawControl && drawControl._toolbars && drawControl._toolbars.edit && drawControl._toolbars.edit._modes.edit) {
+          drawControl._toolbars.edit._modes.edit.handler.disable();
+        }
+      } catch (e) {}
+    }
+
+    function startEdit(itemId) {
+      if (editingItemId && editingItemId !== itemId) {
+        alert('Já existe uma edição em andamento. Salve ou cancele antes de editar outra camada.');
+        return;
+      }
+      const item = currentItems.find(it => it.id === itemId);
+      const layer = userLayers.get(itemId);
+      if (!item || !layer) return;
+      // snapshot original
+      originalGeoJSON = JSON.parse(JSON.stringify(item.data));
+      editingItemId = itemId;
+      editedDirty = false;
+      // isolate in editable group (ensure child vectors are target of edit)
+      editableGroup.clearLayers();
+      if (typeof layer.getLayers === 'function') {
+        layer.getLayers().forEach(ch => editableGroup.addLayer(ch));
+      } else {
+        editableGroup.addLayer(layer);
+      }
+      try { map.fitBounds(layer.getBounds(), { padding: [20,20] }); } catch (e) {}
+      enableDrawEditMode();
+      editSessionControl.setVisible(true);
+    }
+
+    async function onSaveEdits() {
+      if (!editingItemId) return;
+      const layer = userLayers.get(editingItemId);
+      if (!layer) { onCancelEdits(); return; }
+      const updated = layer.toGeoJSON();
+      try {
+        const resp = await fetch(updateUrl(editingItemId), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: updated })
+        });
+        if (!resp.ok) {
+          const msg = await resp.text();
+          alert('Falha ao salvar: ' + msg);
+          return;
+        }
+        const saved = await resp.json();
+        // update local state
+        const idx = currentItems.findIndex(it => it.id === editingItemId);
+        if (idx >= 0) currentItems[idx] = saved;
+        // replace layer with saved data to ensure consistency
+        addOrReplaceLayer(saved);
+        finishEditSession();
+        renderList();
+      } catch (e) {
+        alert('Erro inesperado ao salvar.');
+      }
+    }
+
+    function onCancelEdits() {
+      if (!editingItemId) return;
+      // restore original geometry
+      const restored = { id: editingItemId, name: (currentItems.find(it => it.id === editingItemId) || {}).name || 'Sem nome', data: originalGeoJSON };
+      addOrReplaceLayer(restored);
+      finishEditSession();
+    }
+
+    function finishEditSession() {
+      disableDrawEditMode();
+      editSessionControl.setVisible(false);
+      editingItemId = null;
+      originalGeoJSON = null;
+      editedDirty = false;
+      // keep editableGroup containing all layers again
+      editableGroup.clearLayers();
+      [...userLayers.values()].forEach(l => editableGroup.addLayer(l));
+    }
+
     // Initial load
-    loadItems();
+    loadItems().then(() => {
+      // Focus layer via query param ?focus=<id>
+      const sp = new URLSearchParams(location.search);
+      const focusId = parseInt(sp.get('focus') || '', 10);
+      if (!isNaN(focusId)) {
+        const layer = userLayers.get(focusId);
+        if (layer) {
+          try { map.fitBounds(layer.getBounds(), { padding: [20,20] }); } catch (e) {}
+        }
+      }
+    });
   </script>
 {% endblock %}

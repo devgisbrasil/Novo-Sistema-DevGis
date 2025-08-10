@@ -135,6 +135,39 @@ def map_view():
     return render_template("sig/map.html")
 
 
+@sig_bp.put("/api/files/<int:file_id>")
+@login_required
+def api_update_file(file_id: int):
+    """Atualiza um GeoJSON existente do usuário (somente dono).
+    Corpo esperado: JSON com pelo menos a chave 'data' contendo um GeoJSON válido.
+    Opcionalmente aceita 'name' para renomear.
+    """
+    rec = GeoJSONFile.query.filter_by(id=file_id, user_id=current_user.id).first()
+    if not rec:
+        return jsonify({"error": "Arquivo não encontrado"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    data = payload.get("data")
+    name = (payload.get("name") or "").strip()
+
+    if data is None:
+        return jsonify({"error": "Campo 'data' é obrigatório"}), 400
+    if not isinstance(data, dict):
+        return jsonify({"error": "'data' deve ser um objeto GeoJSON"}), 400
+    if not _validate_geojson(data):
+        return jsonify({"error": "GeoJSON inválido"}), 400
+
+    try:
+        rec.data = data
+        if name:
+            rec.name = name
+        db.session.commit()
+        return jsonify({"id": rec.id, "name": rec.name, "data": rec.data}), 200
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Falha ao atualizar"}), 500
+
+
 @sig_bp.post("/load_examples")
 @login_required
 def load_examples():
