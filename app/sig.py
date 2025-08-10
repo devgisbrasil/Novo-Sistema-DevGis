@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, abort, make_response
 from flask_login import login_required, current_user
 from . import db
-from .models import GeoJSONFile, SavedMap
+from .models import GeoJSONFile
 import json
 import os
 import tempfile
@@ -89,19 +89,59 @@ def _create_export_file(geojson_data, export_format):
     temp_dir = tempfile.mkdtemp()
     
     try:
-        gdf = gpd.GeoDataFrame.from_features(geojson_data.get('features', []))
-        
         if export_format == 'geojson':
             output = BytesIO()
             output.write(json.dumps(geojson_data, ensure_ascii=False).encode('utf-8'))
             output.seek(0)
             return output, 'application/geo+json'
             
-        elif export_format == 'kml':
-            output = BytesIO()
-            gdf.to_file(output, driver='KML')
-            output.seek(0)
-            return output, 'application/vnd.google-earth.kml+xml'
+        # Convert to GeoDataFrame for other formats
+        gdf = gpd.GeoDataFrame.from_features(geojson_data.get('features', []))
+        
+        if export_format == 'kml':
+            # Create a temporary file for KML
+            kml_path = os.path.join(temp_dir, 'export.kml')
+            
+            # Ensure we have a valid geometry column
+            if gdf.geometry.isnull().any():
+                gdf = gdf[gdf.geometry.notnull()]
+                
+            # Convert to WGS84 (EPSG:4326) which is required for KML
+            try:
+                if not gdf.crs:
+                    gdf.crs = 'EPSG:4326'
+                gdf = gdf.to_crs('EPSG:4326')
+                
+                # Save to KML using fiona to avoid issues with GeoPandas KML driver
+                schema = {
+                    'geometry': gdf.geometry.type.iloc[0] if not gdf.empty else 'Point',
+                    'properties': {}
+                }
+                
+                # Save to temporary file
+                with fiona.open(
+                    kml_path, 'w', 
+                    driver='KML', 
+                    schema=schema,
+                    crs='EPSG:4326'
+                ) as dst:
+                    for _, row in gdf.iterrows():
+                        feature = {
+                            'geometry': mapping(row.geometry),
+                            'properties': {}
+                        }
+                        dst.write(feature)
+                
+                # Read the KML file back into memory
+                with open(kml_path, 'rb') as f:
+                    output = BytesIO(f.read())
+                
+                output.seek(0)
+                return output, 'application/vnd.google-earth.kml+xml'
+                
+            except Exception as e:
+                print(f"Error creating KML: {e}")
+                return None, None
             
         elif export_format == 'shp':
             # Create a zip file with all the shapefile components
@@ -109,7 +149,13 @@ def _create_export_file(geojson_data, export_format):
             with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 # Save to a temp directory first
                 temp_shp = os.path.join(temp_dir, 'export.shp')
-                gdf.to_file(temp_shp, driver='ESRI Shapefile', encoding='utf-8')
+                
+                # Ensure we have a valid geometry column and CRS
+                if gdf.geometry.isnull().any():
+                    gdf = gdf[gdf.geometry.notnull()]
+                if not gdf.crs:
+                    gdf.crs = 'EPSG:4326'
+                                    gdf.to_file(temp_shp, driver='ESRI Shapefile', encoding='utf-8')
                 
                 # Add all shapefile components to the zip
                 for ext in ['.shp', '.shx', '.dbf', '.prj', '.cpg']:
@@ -122,14 +168,16 @@ def _create_export_file(geojson_data, export_format):
             
     except Exception as e:
         print(f"Error creating export file: {e}")
+        import traceback
+        traceback.print_exc()
         return None, None
     finally:
         # Clean up temporary files
         try:
             import shutil
             shutil.rmtree(temp_dir)
-        except:
-            pass
+        except Exception as e:
+            print(f"Error cleaning up temp files: {e}")
     
     return None, None
 
@@ -138,80 +186,6 @@ def _create_export_file(geojson_data, export_format):
 @login_required
 def index():
     return render_template("sig/index.html")
-
-
- 
-
-
-@sig_bp.get("/api/maps")
-@login_required
-def api_list_maps():
-    maps = SavedMap.query.filter_by(user_id=current_user.id).order_by(SavedMap.created_at.desc()).all()
-    return jsonify([
-        {"id": m.id, "name": m.name, "created_at": m.created_at.isoformat()} for m in maps
-    ])
-
-
-@sig_bp.post("/api/maps")
-@login_required
-def api_save_map():
-    try:
-        payload = request.get_json(force=True)
-        name = (payload or {}).get("name") or "Mapa sem título"
-        data = (payload or {}).get("data") or {}
-        rec = SavedMap(user_id=current_user.id, name=name, data=data)
-        db.session.add(rec)
-        db.session.commit()
-        return jsonify({"id": rec.id, "name": rec.name, "created_at": rec.created_at.isoformat()}), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 400
-
-
-@sig_bp.get("/api/maps/<int:map_id>")
-@login_required
-def api_get_map(map_id: int):
-    m = SavedMap.query.get_or_404(map_id)
-    if m.user_id != current_user.id:
-        return jsonify({"error": "forbidden"}), 403
-    return jsonify({
-        "id": m.id,
-        "name": m.name,
-        "created_at": m.created_at.isoformat() if m.created_at else None,
-        "data": m.data,
-        "public_token": m.public_token,
-    })
-
-
-@sig_bp.delete("/api/maps/<int:map_id>")
-@login_required
-def api_delete_map(map_id: int):
-    m = SavedMap.query.get_or_404(map_id)
-    if m.user_id != current_user.id:
-        return jsonify({"error": "forbidden"}), 403
-    db.session.delete(m)
-    db.session.commit()
-    return jsonify({"ok": True})
-
-
-@sig_bp.post("/api/maps/<int:map_id>/publish")
-@login_required
-def api_publish_map(map_id: int):
-    m = SavedMap.query.get_or_404(map_id)
-    if m.user_id != current_user.id:
-        return jsonify({"error": "forbidden"}), 403
-    if not m.public_token:
-        m.public_token = secrets.token_urlsafe(24)
-        db.session.commit()
-    public_url = url_for('sig.public_map', token=m.public_token, _external=True)
-    return jsonify({"public_url": public_url, "token": m.public_token})
-
-
-@sig_bp.get("/public/<token>")
-def public_map(token: str):
-    m = SavedMap.query.filter_by(public_token=token).first_or_404()
-    # Render the regular map page but in readonly/public mode via query param
-    return redirect(url_for('sig.map_view') + f"?saved={m.id}&public=1")
 
 
 @sig_bp.route("/files", methods=["GET", "POST"])

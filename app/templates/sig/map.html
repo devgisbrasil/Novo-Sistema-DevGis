@@ -96,9 +96,6 @@
         </div>
       </div>
       <hr />
-      <div class="d-grid">
-        <button id="btn-save-map" class="btn btn-success btn-sm">Salvar mapa</button>
-      </div>
     </aside>
     <div id="map"></div>
     <div class="sidebar-toggle">
@@ -571,43 +568,9 @@
     (function(){
       const sp = new URLSearchParams(location.search);
       const onlyId = parseInt(sp.get('only') || '', 10);
-      const savedId = parseInt(sp.get('saved') || '', 10);
       const isPublic = sp.get('public') === '1';
-      async function applySavedMap(sdata) {
-        try {
-          // base
-          if (sdata.base && baseLayers[sdata.base]) {
-            Object.values(baseLayers).forEach(l => { try { map.removeLayer(l); } catch(e){} });
-            baseLayers[sdata.base].addTo(map);
-            currentBase = sdata.base;
-          }
-          // view
-          if (sdata.center && typeof sdata.zoom === 'number') {
-            map.setView([sdata.center.lat, sdata.center.lng], sdata.zoom);
-          }
-          // layers
-          if (Array.isArray(sdata.layers)) {
-            currentItems = sdata.layers.map(l => ({ id: l.id, name: l.name, data: l.data }));
-            // preload styles
-            sdata.layers.forEach(l => { if (l.style) layerStyles.set(l.id, l.style); });
-            renderList();
-            // add layers and set visibility
-            sdata.layers.forEach(l => {
-              const layer = addOrReplaceLayer({ id: l.id, name: l.name, data: l.data });
-              if (layer && l.visible === false) { try { map.removeLayer(layer); } catch(e){} }
-            });
-          }
-        } catch (e) {
-          console.error('applySavedMap error', e);
-        }
-      }
       if (!isNaN(onlyId)) {
         loadItems(onlyId);
-      } else if (!isNaN(savedId)) {
-        fetch(`{{ url_for('sig.api_get_map', map_id=0) }}`.replace('0', String(savedId)))
-          .then(r => r.ok ? r.json() : Promise.reject(r))
-          .then(d => applySavedMap(d.data || {}))
-          .catch(() => alert('Não foi possível carregar o mapa salvo.'));
       } else {
         loadItems().then(() => {
           const focusId = parseInt(sp.get('focus') || '', 10);
@@ -633,44 +596,9 @@
       // Search in layers
       const searchEl = document.getElementById('layer-search');
       if (searchEl) searchEl.addEventListener('input', renderList);
-      // Save map snapshot (disabled in public)
-    const saveBtn = document.getElementById('btn-save-map');
-    if (!isPublic) saveBtn.addEventListener('click', async () => {
-      const name = prompt('Nome do mapa:', 'Meu mapa');
-      if (!name) return;
-      const center = map.getCenter();
-      const zoom = map.getZoom();
-      const layersState = currentItems.map(it => {
-        const layer = userLayers.get(it.id);
-        const visible = layer ? map.hasLayer(layer) : false;
-        return {
-          id: it.id,
-          name: it.name,
-          data: it.data,
-          style: layerStyles.get(it.id) || null,
-          visible,
-        };
-      });
-      const payload = {
-        name,
-        data: {
-          base: currentBase,
-          center: { lat: center.lat, lng: center.lng },
-          zoom,
-          layers: layersState,
-        }
-      };
-      try {
-        const resp = await fetch("{{ url_for('sig.api_save_map') }}", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (!resp.ok) { const txt = await resp.text(); alert('Falha ao salvar mapa: ' + txt); return; }
-        alert('Mapa salvo com sucesso. Veja em SIG WEB > Meus mapas.');
-      } catch (e) {
-        alert('Erro ao salvar mapa.');
-      }
-    });
+    // Removida a funcionalidade de salvar mapa
     if (isPublic) {
-      // Ocultar edição e upload no modo público
-      document.getElementById('btn-save-map')?.closest('.d-grid')?.remove();
+      // Ocultar upload no modo público
       document.getElementById('sec-upload')?.closest('.section')?.remove();
     }
     // Dropzone behaviors
