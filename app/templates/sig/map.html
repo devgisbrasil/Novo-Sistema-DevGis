@@ -18,7 +18,9 @@
     .sidebar .btn-icon { border: 1px solid #e5e7eb; background: #f8f9fa; padding: 2px 6px; border-radius: 4px; font-size: 12px; cursor: pointer; }
     .sidebar .btn-icon:hover { background: #e9ecef; }
     .sidebar-toggle { position: absolute; left: 300px; top: 12px; z-index: 500; transform: translateX(-50%); }
-    .sidebar-toggle .btn { padding: 4px 8px; font-size: 12px; }
+    .sidebar-toggle .btn { padding: 8px 10px; font-size: 14px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    .sidebar-toggle .btn.btn-primary { background: var(--brand-500); border-color: var(--brand-600); }
+    .sidebar-toggle .btn.btn-primary:hover { background: var(--brand-600); border-color: var(--brand-700); }
     .collapsed .sidebar { width: 0; padding: 0; border-right: none; }
     .collapsed .sidebar-toggle { left: 0; transform: translateX(-50%); }
     .leaflet-top.leaflet-right { margin-right: 10px; }
@@ -49,7 +51,38 @@
     </aside>
     <div id="map"></div>
     <div class="sidebar-toggle">
-      <button type="button" id="btn-toggle-sidebar" class="btn btn-light border">⟨⟩</button>
+      <button type="button" id="btn-toggle-sidebar" class="btn btn-primary" title="Recolher/Expandir menu">
+        <span id="icon-open">«</span><span id="icon-closed" style="display:none">»</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal: Tabela de Atributos -->
+  <div class="modal fade" id="attrModal" tabindex="-1" aria-labelledby="attrModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="attrModalLabel">Tabela de atributos</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex gap-2 mb-2">
+            <button class="btn btn-outline-primary btn-sm" id="btn-add-col">Adicionar campo</button>
+            <button class="btn btn-outline-danger btn-sm" id="btn-del-col">Remover campo selecionado</button>
+            <span class="text-muted">Dica: clique em um cabeçalho para selecionar a coluna.</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm align-middle" id="attr-table">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+          <button type="button" class="btn btn-primary" id="btn-save-attrs">Salvar alterações</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -63,18 +96,17 @@
     // Base layers
     const baseLayers = {
       road: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}),
-      sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {attribution: 'Tiles &copy; Esri'}),
-      relief: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {maxZoom: 17, attribution: 'Map data: &copy; OpenStreetMap, SRTM | Map style: &copy; OpenTopoMap'})
+      sat: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {maxZoom: 17, attribution: 'Tiles &copy; OpenTopoMap'}),
+      relief: L.tileLayer('https://{s}.tile.stamen.com/terrain/{z}/{x}/{y}.jpg', {maxZoom: 18, attribution: 'Stamen Terrain'})
     };
     baseLayers.road.addTo(map);
-    map.setView([0, 0], 2);
 
-    // Draw tools and editable group
     const editableGroup = new L.FeatureGroup();
     map.addLayer(editableGroup);
     const drawControl = new L.Control.Draw({
-      edit: { featureGroup: editableGroup },
-      draw: { polygon: true, polyline: true, rectangle: true, circle: true, marker: true }
+      position: 'topleft',
+      draw: { polygon: true, polyline: true, rectangle: true, circle: false, marker: true },
+      edit: { featureGroup: editableGroup }
     });
     map.addControl(drawControl);
     map.on(L.Draw.Event.CREATED, function (e) { editableGroup.addLayer(e.layer); });
@@ -82,6 +114,7 @@
     // My GeoJSON layers state
     const userLayers = new Map(); // id -> layer
     let currentItems = [];
+    let selectedCol = null; // atributo selecionado no modal
 
     function renderList() {
       const list = document.getElementById('layers-list');
@@ -121,8 +154,14 @@
         btnEdit.className = 'btn-icon';
         btnEdit.textContent = 'Editar';
         btnEdit.addEventListener('click', () => { startEdit(item.id); });
+        const btnTable = document.createElement('button');
+        btnTable.type = 'button';
+        btnTable.className = 'btn-icon';
+        btnTable.textContent = 'Tabela';
+        btnTable.addEventListener('click', () => { openAttrTable(item.id); });
         actions.appendChild(btnZoom);
         actions.appendChild(btnEdit);
+        actions.appendChild(btnTable);
         li.appendChild(actions);
         list.appendChild(li);
       });
@@ -144,16 +183,28 @@
       if (group.getLayers().length) { map.fitBounds(group.getBounds(), { padding: [20, 20] }); }
     }
 
-    function loadItems() {
-      return fetch("{{ url_for('sig.api_my_geojsons') }}")
-        .then(r => r.json())
-        .then(items => {
-          currentItems = Array.isArray(items) ? items : [];
-          currentItems.forEach(addOrReplaceLayer);
-          renderList();
-          fitToAll();
-        })
-        .catch(() => {});
+    function loadItems(onlyId) {
+      if (onlyId) {
+        return fetch(`{{ url_for('sig.api_get_file', file_id=0) }}`.replace(/0$/, String(onlyId)))
+          .then(r => r.ok ? r.json() : Promise.reject())
+          .then(item => {
+            currentItems = [item];
+            addOrReplaceLayer(item);
+            renderList();
+            try { const layer = userLayers.get(item.id); if (layer) map.fitBounds(layer.getBounds(), { padding: [20,20] }); } catch(e) {}
+          })
+          .catch(() => {});
+      } else {
+        return fetch("{{ url_for('sig.api_my_geojsons') }}")
+          .then(r => r.json())
+          .then(items => {
+            currentItems = Array.isArray(items) ? items : [];
+            currentItems.forEach(addOrReplaceLayer);
+            renderList();
+            fitToAll();
+          })
+          .catch(() => {});
+      }
     }
 
     // Basemap switching
@@ -165,40 +216,41 @@
       });
     });
 
-    // Upload handler
     document.getElementById('upload-form').addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const form = ev.currentTarget;
       const fd = new FormData(form);
       const resp = await fetch("{{ url_for('sig.api_upload') }}", { method: 'POST', body: fd });
-      if (!resp.ok) { alert('Falha ao enviar arquivo'); return; }
-      const item = await resp.json();
-      // update state
-      currentItems.push(item);
-      addOrReplaceLayer(item);
-      renderList();
-      fitToAll();
-      form.reset();
+      if (resp.ok) {
+        const saved = await resp.json();
+        currentItems.push(saved);
+        addOrReplaceLayer(saved);
+        renderList();
+        try { const layer = userLayers.get(saved.id); if (layer) map.fitBounds(layer.getBounds(), { padding: [20,20] }); } catch(e) {}
+        form.reset();
+      } else {
+        alert('Falha ao enviar arquivo');
+      }
     });
 
-    // Sidebar toggle
-    const wrapper = document.querySelector('.map-wrapper');
-    const btnToggle = document.getElementById('btn-toggle-sidebar');
-    btnToggle.addEventListener('click', () => {
+    // Toggle sidebar
+    document.getElementById('btn-toggle-sidebar').addEventListener('click', () => {
+      const wrapper = document.querySelector('.map-wrapper');
       wrapper.classList.toggle('collapsed');
+      const open = !wrapper.classList.contains('collapsed');
+      document.getElementById('icon-open').style.display = open ? '' : 'none';
+      document.getElementById('icon-closed').style.display = open ? 'none' : '';
       setTimeout(() => map.invalidateSize(), 220);
     });
 
     // Back button control
     const BackControl = L.Control.extend({
       options: { position: 'topleft' },
-      onAdd: function() {
+      onAdd: function () {
         const container = L.DomUtil.create('div', 'leaflet-bar');
-        const a = L.DomUtil.create('a', '', container);
-        a.href = '#'; a.title = 'Voltar'; a.innerHTML = '↩';
-        L.DomEvent.on(a, 'click', L.DomEvent.stopPropagation)
-                  .on(a, 'click', L.DomEvent.preventDefault)
-                  .on(a, 'click', () => { if (history.length > 1) history.back(); else window.location = "{{ url_for('sig.index') }}"; });
+        const btn = L.DomUtil.create('a', '', container);
+        btn.innerHTML = '←';
+        btn.href = "{{ url_for('sig.files') }}";
         return container;
       }
     });
@@ -207,30 +259,26 @@
     // --- Edit session control (Salvar / Cancelar) ---
     const EditSessionControl = L.Control.extend({
       options: { position: 'topleft' },
-      onAdd: function() {
+      onAdd: function () {
         const container = L.DomUtil.create('div', 'leaflet-bar');
-        container.style.display = 'none'; // hidden by default
-        const btnSave = L.DomUtil.create('a', '', container);
-        btnSave.href = '#'; btnSave.title = 'Salvar edições'; btnSave.innerHTML = '💾';
-        const btnCancel = L.DomUtil.create('a', '', container);
-        btnCancel.href = '#'; btnCancel.title = 'Cancelar edições'; btnCancel.innerHTML = '✖';
-        L.DomEvent.on(btnSave, 'click', L.DomEvent.stopPropagation)
-                  .on(btnSave, 'click', L.DomEvent.preventDefault)
-                  .on(btnSave, 'click', onSaveEdits);
-        L.DomEvent.on(btnCancel, 'click', L.DomEvent.stopPropagation)
-                  .on(btnCancel, 'click', L.DomEvent.preventDefault)
-                  .on(btnCancel, 'click', onCancelEdits);
-        this._container = container;
+        container.style.display = 'none';
+        const btnSave = L.DomUtil.create('a', '', container); btnSave.innerHTML = '💾'; btnSave.title = 'Salvar edição';
+        const btnCancel = L.DomUtil.create('a', '', container); btnCancel.innerHTML = '✖'; btnCancel.title = 'Cancelar edição';
+        btnSave.href = '#'; btnCancel.href = '#';
+        L.DomEvent.on(btnSave, 'click', (e) => { L.DomEvent.stop(e); onSaveEdits(); });
+        L.DomEvent.on(btnCancel, 'click', (e) => { L.DomEvent.stop(e); onCancelEdits(); });
+        container.setAttribute('data-visible', 'false');
+        container.setAttribute('id', 'edit-session-ctl');
         return container;
       },
-      setVisible: function(v) {
-        if (this._container) this._container.style.display = v ? '' : 'none';
+      setVisible(v) {
+        const c = document.getElementById('edit-session-ctl');
+        if (c) c.style.display = v ? '' : 'none';
       }
     });
     const editSessionControl = new EditSessionControl();
     map.addControl(editSessionControl);
 
-    // --- Edit session logic ---
     let editingItemId = null;
     let originalGeoJSON = null;
     let editedDirty = false;
@@ -327,17 +375,133 @@
       [...userLayers.values()].forEach(l => editableGroup.addLayer(l));
     }
 
-    // Initial load
-    loadItems().then(() => {
-      // Focus layer via query param ?focus=<id>
-      const sp = new URLSearchParams(location.search);
-      const focusId = parseInt(sp.get('focus') || '', 10);
-      if (!isNaN(focusId)) {
-        const layer = userLayers.get(focusId);
-        if (layer) {
-          try { map.fitBounds(layer.getBounds(), { padding: [20,20] }); } catch (e) {}
-        }
+    // ---------- Attribute table (properties) ----------
+    let attrItemId = null;
+    function unionPropertyKeys(fc) {
+      const keys = new Set();
+      if (fc && fc.type === 'FeatureCollection' && Array.isArray(fc.features)) {
+        fc.features.forEach(f => {
+          const props = (f && f.properties) || {};
+          Object.keys(props).forEach(k => keys.add(k));
+        });
+      }
+      return Array.from(keys);
+    }
+
+    function buildAttrTable(item) {
+      const table = document.getElementById('attr-table');
+      const thead = table.querySelector('thead');
+      const tbody = table.querySelector('tbody');
+      thead.innerHTML = '';
+      tbody.innerHTML = '';
+      selectedCol = null;
+      const data = item.data;
+      if (!data || data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+        thead.innerHTML = '<tr><th class="text-muted">Sem atributos (não é FeatureCollection)</th></tr>';
+        return;
+      }
+      const cols = unionPropertyKeys(data);
+      const trh = document.createElement('tr');
+      cols.forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col;
+        th.tabIndex = 0;
+        th.addEventListener('click', () => { selectedCol = col; [...thead.querySelectorAll('th')].forEach(x=>x.classList.remove('table-primary')); th.classList.add('table-primary'); });
+        trh.appendChild(th);
+      });
+      thead.appendChild(trh);
+      data.features.forEach((f, idx) => {
+        const tr = document.createElement('tr');
+        cols.forEach(col => {
+          const td = document.createElement('td');
+          const val = (f.properties && f.properties[col] !== undefined) ? f.properties[col] : '';
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.className = 'form-control form-control-sm';
+          input.value = String(val);
+          input.dataset.row = String(idx);
+          input.dataset.col = col;
+          td.appendChild(input);
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openAttrTable(itemId) {
+      const item = currentItems.find(it => it.id === itemId);
+      if (!item) return;
+      attrItemId = itemId;
+      document.getElementById('attrModalLabel').textContent = `Tabela de atributos • ${item.name}`;
+      buildAttrTable(item);
+      const modal = new bootstrap.Modal(document.getElementById('attrModal'));
+      modal.show();
+    }
+
+    document.getElementById('btn-add-col').addEventListener('click', () => {
+      const name = prompt('Nome do novo campo:');
+      if (!name) return;
+      const item = currentItems.find(it => it.id === attrItemId);
+      if (!item || item.data.type !== 'FeatureCollection') return;
+      // add new column to UI and set empty values
+      const cols = unionPropertyKeys(item.data);
+      if (cols.includes(name)) { alert('Campo já existe.'); return; }
+      item.data.features.forEach(f => { if (!f.properties) f.properties = {}; f.properties[name] = ''; });
+      buildAttrTable(item);
+    });
+
+    document.getElementById('btn-del-col').addEventListener('click', () => {
+      if (!selectedCol) { alert('Selecione um cabeçalho de coluna primeiro.'); return; }
+      const ok = confirm(`Remover campo "${selectedCol}" de todos os registros?`);
+      if (!ok) return;
+      const item = currentItems.find(it => it.id === attrItemId);
+      if (!item || item.data.type !== 'FeatureCollection') return;
+      item.data.features.forEach(f => { if (f && f.properties) { delete f.properties[selectedCol]; } });
+      buildAttrTable(item);
+    });
+
+    document.getElementById('btn-save-attrs').addEventListener('click', async () => {
+      const item = currentItems.find(it => it.id === attrItemId);
+      if (!item || item.data.type !== 'FeatureCollection') return;
+      // read inputs back into item.data
+      document.querySelectorAll('#attr-table tbody input').forEach(inp => {
+        const row = parseInt(inp.dataset.row, 10);
+        const col = inp.dataset.col;
+        const f = item.data.features[row];
+        if (!f.properties) f.properties = {};
+        f.properties[col] = inp.value;
+      });
+      try {
+        const resp = await fetch(updateUrl(item.id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: item.data }) });
+        if (!resp.ok) { const msg = await resp.text(); alert('Falha ao salvar: ' + msg); return; }
+        const saved = await resp.json();
+        // update local state and layer
+        const idx = currentItems.findIndex(it => it.id === item.id);
+        if (idx >= 0) currentItems[idx] = saved;
+        addOrReplaceLayer(saved);
+        alert('Atributos salvos com sucesso.');
+      } catch (e) {
+        alert('Erro inesperado ao salvar atributos.');
       }
     });
+
+    // Initial load
+    (function(){
+      const sp = new URLSearchParams(location.search);
+      const onlyId = parseInt(sp.get('only') || '', 10);
+      if (!isNaN(onlyId)) {
+        loadItems(onlyId);
+      } else {
+        loadItems().then(() => {
+          const focusId = parseInt(sp.get('focus') || '', 10);
+          if (!isNaN(focusId)) {
+            const layer = userLayers.get(focusId);
+            if (layer) {
+              try { map.fitBounds(layer.getBounds(), { padding: [20,20] }); } catch (e) {}
+            }
+          }
+        });
+      }
+    })();
   </script>
 {% endblock %}

@@ -94,6 +94,16 @@ def api_my_geojsons():
     ])
 
 
+@sig_bp.get("/api/files/<int:file_id>")
+@login_required
+def api_get_file(file_id: int):
+    """Retorna um único GeoJSON do usuário atual pelo id."""
+    rec = GeoJSONFile.query.filter_by(id=file_id, user_id=current_user.id).first()
+    if not rec:
+        return jsonify({"error": "Arquivo não encontrado"}), 404
+    return jsonify({"id": rec.id, "name": rec.name, "data": rec.data})
+
+
 @sig_bp.post("/api/upload")
 @login_required
 def api_upload():

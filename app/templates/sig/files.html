@@ -62,7 +62,7 @@
                 <td>{{ f.name }}</td>
                 <td class="text-nowrap">{{ f.created_at }}</td>
                 <td class="text-end">
-                  <a class="btn btn-outline-primary btn-sm me-1" href="{{ url_for('sig.map_view') }}?focus={{ f.id }}" target="_blank">Visualizar</a>
+                  <a class="btn btn-outline-primary btn-sm me-1" href="{{ url_for('sig.map_view') }}?only={{ f.id }}" target="_blank">Visualizar</a>
                   <form method="post" action="{{ url_for('sig.delete_file', file_id=f.id) }}" onsubmit="return confirm('Remover este arquivo?');" class="d-inline">
                     <button class="btn btn-outline-danger btn-sm" type="submit">Remover</button>
                   </form>
