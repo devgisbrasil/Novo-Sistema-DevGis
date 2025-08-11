@@ -364,31 +364,23 @@
     // Track if we're in drawing mode
     let isDrawingMode = false;
     
-    // Store the save button reference
-    let saveButton = null;
+    // Remove the old save button reference since we'll create a new one
     
-    // Add save control to the map if it doesn't exist
-    if (typeof window.SaveControl === 'undefined') {
-      window.SaveControl = L.Control.extend({
-        options: {
-          position: 'topleft'
-        },
-        
-        onAdd: function(map) {
-          const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-          const link = L.DomUtil.create('a', 'leaflet-bar-part', container);
-          link.href = '#';
-          link.title = 'Salvar Desenho';
-          link.innerHTML = '<i class="fas fa-save" style="line-height: 30px;"></i>';
-          
-          L.DomEvent.on(link, 'click', L.DomEvent.stopPropagation)
-            .on(link, 'click', L.DomEvent.preventDefault)
-            .on(link, 'click', () => this._saveDrawing());
-          
-          return container;
-        },
-        
-        _saveDrawing: async function() {
+    // Add a dedicated save button to the map controls
+    const saveButtonControl = L.control({position: 'topleft'});
+    
+    saveButtonControl.onAdd = function(map) {
+      const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+      div.innerHTML = `
+        <a href="#" class="leaflet-draw-edit-edit" title="Salvar Desenho" style="display: block;">
+          <i class="fas fa-save" style="line-height: 30px; width: 30px; text-align: center; display: inline-block;"></i>
+        </a>
+      `;
+      
+      // Add click handler
+      L.DomEvent.on(div, 'click', L.DomEvent.stopPropagation)
+        .on(div, 'click', L.DomEvent.preventDefault)
+        .on(div, 'click', async () => {
           const layers = editableGroup.getLayers();
           if (layers.length === 0) {
             alert('Nenhum desenho para salvar. Desenhe algo no mapa primeiro.');
@@ -451,13 +443,13 @@
             console.error('Erro ao salvar desenho:', error);
             alert(`Erro: ${error.message}`);
           }
-        }
-      });
-    }
+        });
+      
+      return div;
+    };
     
-    // Add save control to the map
-    const saveControl = new window.SaveControl();
-    map.addControl(saveControl);
+    // Add the save button to the map
+    saveButton.addTo(map);
     
     // Function to save the drawn features
     async function saveDrawnFeatures() {
