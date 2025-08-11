@@ -320,35 +320,78 @@ def api_get_file(file_id: int):
 @sig_bp.post("/api/upload")
 @login_required
 def api_upload():
-    """Upload de GeoJSON via API (map page). Aceita multipart com 'file' ou JSON bruto em 'raw_json'."""
-    uploaded = request.files.get("file")
-    raw = request.form.get("raw_json", "").strip()
-    name = request.form.get("name", "").strip()
+    """
+    Upload de GeoJSON via API (map page). 
+    Aceita:
+    - multipart/form-data com 'file' (arquivo)
+    - application/json com 'data' (GeoJSON) e 'name' (opcional)
+    - application/x-www-form-urlencoded com 'raw_json' e 'name'
+    """
     try:
-        if uploaded and uploaded.filename:
-            filename = secure_filename(uploaded.filename)
-            content = uploaded.read().decode("utf-8")
-            data = json.loads(content)
-            if not name:
-                name = filename
-        elif raw:
-            data = json.loads(raw)
-            if not name:
-                name = "GeoJSON sem nome"
+        # Handle JSON content type
+        if request.is_json:
+            json_data = request.get_json()
+            data = json_data.get('data')
+            name = json_data.get('name', 'Meu Desenho').strip()
+            if not data:
+                return jsonify({"error": "Campo 'data' não encontrado no JSON"}), 400
         else:
-            return jsonify({"error": "Arquivo ou JSON não fornecido"}), 400
-
+            # Handle form data
+            uploaded = request.files.get("file")
+            raw = request.form.get("raw_json", "").strip()
+            name = request.form.get("name", "").strip()
+            
+            if uploaded and uploaded.filename:
+                # Handle file upload
+                filename = secure_filename(uploaded.filename)
+                content = uploaded.read().decode("utf-8")
+                data = json.loads(content)
+                if not name:
+                    name = os.path.splitext(filename)[0]  # Remove a extensão do arquivo
+            elif raw:
+                # Handle raw JSON from form
+                data = json.loads(raw)
+                if not name:
+                    name = "Meu Desenho"
+            else:
+                return jsonify({"error": "Nenhum dado fornecido. Envie um arquivo ou JSON."}), 400
+        
+        # Validate the GeoJSON data
         if not _validate_geojson(data):
-            return jsonify({"error": "GeoJSON inválido"}), 400
-
-        rec = GeoJSONFile(user_id=current_user.id, name=name or "Sem nome", data=data)
+            return jsonify({"error": "GeoJSON inválido. Certifique-se de que é um FeatureCollection, Feature ou Geometry válido."}), 400
+        
+        # Ensure we have a valid name
+        if not name:
+            name = "Meu Desenho"
+        
+        # Ensure the name is unique by appending a number if needed
+        base_name = name
+        counter = 1
+        while GeoJSONFile.query.filter_by(user_id=current_user.id, name=name).first() is not None:
+            name = f"{base_name} ({counter})"
+            counter += 1
+        
+        # Create and save the new record
+        rec = GeoJSONFile(
+            user_id=current_user.id, 
+            name=name,
+            data=data
+        )
+        
         db.session.add(rec)
         db.session.commit()
-        return jsonify({"id": rec.id, "name": rec.name, "data": rec.data}), 201
-    except json.JSONDecodeError:
-        return jsonify({"error": "JSON inválido"}), 400
+        
+        return jsonify({
+            "id": rec.id, 
+            "name": rec.name,
+            "message": "Desenho salvo com sucesso!"
+        }), 201
+        
+    except json.JSONDecodeError as e:
+        return jsonify({"error": f"Erro ao decodificar JSON: {str(e)}"}), 400
     except Exception as e:
         db.session.rollback()
+        return jsonify({"error": f"Erro ao processar a requisição: {str(e)}"}), 500
         return jsonify({"error": "Falha ao salvar"}), 500
 
 

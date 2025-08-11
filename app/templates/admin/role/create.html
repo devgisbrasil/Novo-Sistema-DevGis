@@ -1,0 +1,105 @@
+{% extends 'admin/base.html' %}
+{% import 'admin/lib.html' as lib with context %}
+{% from 'admin/lib.html' import extra with context %}
+
+{% block head %}
+  {{ super() }}
+  {{ lib.form_css() }}
+  <!-- Select2 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <style>
+    .select2-container {
+      width: 100% !important;
+    }
+    .select2-selection {
+      min-height: 38px !important;
+      border: 1px solid #d1d3e2 !important;
+      border-radius: 0.35rem !important;
+    }
+  </style>
+{% endblock %}
+
+{% block page_title %}{{ _gettext('Criar Novo Grupo') }}{% endblock %}
+
+{% block body %}
+  <div class="card shadow mb-4">
+    <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Criar Novo Grupo</h6>
+    </div>
+    <div class="card-body">
+      <form method="POST" action="">
+        {{ form.hidden_tag() }}
+        
+        <!-- Nome do Grupo -->
+        <div class="form-group">
+          <label for="name">{{ form.name.label.text }}</label>
+          {{ form.name(class="form-control") }}
+          {% if form.name.errors %}
+            <div class="invalid-feedback d-block">
+              {{ form.name.errors[0] }}
+            </div>
+          {% endif %}
+        </div>
+        
+        <!-- Descrição -->
+        <div class="form-group">
+          <label for="description">{{ form.description.label.text }}</label>
+          {{ form.description(class="form-control", rows=3) }}
+          {% if form.description.errors %}
+            <div class="invalid-feedback d-block">
+              {{ form.description.errors[0] }}
+            </div>
+          {% endif %}
+        </div>
+        
+        <!-- Usuários -->
+        <div class="form-group">
+          <label for="users">{{ form.users.label.text }}</label>
+          {{ form.users(class="form-control select2") }}
+          {% if form.users.errors %}
+            <div class="invalid-feedback d-block">
+              {{ form.users.errors[0] }}
+            </div>
+          {% endif %}
+        </div>
+        
+        <!-- Permissões -->
+        <div class="form-group">
+          <label for="permissions">Páginas com Acesso</label>
+          <select id="permissions" name="permissions" class="form-control select2" multiple="multiple">
+            {% for permission in permissions %}
+              <option value="{{ permission.id }}">{{ permission.name }} - {{ permission.description or 'Sem descrição' }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <!-- Botões de Ação -->
+        <div class="form-group mt-4">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Salvar
+          </button>
+          <a href="{{ url_for('role.index_view') }}" class="btn btn-secondary">
+            <i class="fas fa-times"></i> Cancelar
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+
+{% block tail %}
+  {{ super() }}
+  {{ lib.form_js() }}
+  <!-- Select2 JS -->
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  <script>
+    $(document).ready(function() {
+      // Inicializa o Select2
+      $('.select2').select2({
+        placeholder: 'Selecione as opções...',
+        allowClear: true,
+        width: '100%'
+      });
+    });
+  </script>
+{% endblock %}

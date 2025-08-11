@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+
+{% block head %}
+{{ super() }}
+<!-- Custom Admin CSS -->
+<link href="{{ url_for('static', filename='css/admin-custom.css') }}" rel="stylesheet">
+<!-- Bootstrap Icons -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+    :root {
+        --sidebar-width: 250px;
+        --top-navbar-height: 56px;
+        --primary-color: #4e73df;
+        --primary-hover: #2e59d9;
+        --sidebar-bg: #fff;
+        --sidebar-text: #333;
+        --sidebar-hover-bg: rgba(78, 115, 223, 0.1);
+        --sidebar-active-bg: rgba(78, 115, 223, 0.2);
+    }
+    
+    body {
+        padding-top: var(--top-navbar-height);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow-x: hidden;
+    }
+    
+    .sidebar {
+        width: var(--sidebar-width);
+        background: var(--sidebar-bg);
+        color: var(--sidebar-text);
+        position: fixed;
+        top: var(--top-navbar-height);
+        left: 0;
+        bottom: 0;
+        height: auto;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        z-index: 1000;
+        transition: all 0.3s;
+        overflow-y: auto;
+    }
+    
+    .sidebar .nav-link {
+        color: var(--sidebar-text);
+        padding: 0.75rem 1.5rem;
+        margin: 0.2rem 0.5rem;
+        border-radius: 0.35rem;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .sidebar .nav-link:hover {
+        background: var(--sidebar-hover-bg);
+        color: var(--primary-color);
+    }
+    
+    .sidebar .nav-link.active {
+        color: var(--primary-color);
+        background: var(--sidebar-active-bg);
+    }
+    
+    .sidebar .nav-link i {
+        width: 20px;
+        text-align: center;
+        margin-right: 0.5rem;
+    }
+    
+    .main-content {
+        margin-left: var(--sidebar-width);
+        padding: 1.5rem;
+        flex: 1;
+        width: calc(100% - var(--sidebar-width));
+        min-height: calc(100vh - var(--top-navbar-height));
+        transition: all 0.3s;
+    }
+    
+    @media (max-width: 768px) {
+        .sidebar {
+            transform: translateX(-100%);
+            z-index: 1040;
+        }
+        
+        .sidebar.show {
+            transform: translateX(0);
+        }
+        
+        .main-content {
+            margin-left: 0;
+            padding: 1rem;
+            width: 100%;
+            max-width: 100%;
+        }
+    }
+    
+    /* Card styles */
+    .card {
+        border: none;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+        margin-bottom: 1.5rem;
+        border-radius: 0.35rem;
+    }
+    
+    .card-header {
+        background-color: #f8f9fc;
+        border-bottom: 1px solid #e3e6f0;
+        padding: 1rem 1.25rem;
+    }
+    
+    /* Table styles */
+    .table th {
+        border-top: none;
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 1rem;
+    }
+    
+    .table td {
+        padding: 1rem;
+        vertical-align: middle;
+    }
+    
+    /* Button styles */
+    .btn-primary {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+    
+    .btn-primary:hover {
+        background-color: var(--primary-hover);
+        border-color: var(--primary-hover);
+    }
+    
+    /* Form styles */
+    .form-control:focus, .form-select:focus {
+        border-color: #bac8f3;
+        box-shadow: 0 0 0 0.25rem rgba(78, 115, 223, 0.25);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Sidebar Toggle Button (Mobile) -->
+<button class="btn btn-primary d-md-none position-fixed" id="sidebarToggle" style="z-index: 1001; bottom: 1rem; right: 1rem;">
+    <i class="fas fa-bars"></i>
+</button>
+
+<div class="d-flex" style="min-height: calc(100vh - var(--top-navbar-height));">
+    <!-- Sidebar -->
+    <nav id="sidebar" class="sidebar">
+        <div class="d-flex flex-column flex-shrink-0 p-3 h-100">
+            <div class="text-center mb-4">
+                    <h5 class="text-primary mb-0">Painel de Controle</h5>
+                    <hr class="mt-2 mb-0">
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin_dashboard.index' %}active{% endif %}" 
+                           href="{{ url_for('admin_dashboard.index') }}">
+                            <i class="fas fa-tachometer-alt"></i>
+                            Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'user.index_view' %}active{% endif %}" 
+                           href="{{ url_for('user.index_view') }}">
+                            <i class="fas fa-users me-2"></i>
+                            Usuários
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'role.index_view' %}active{% endif %}" 
+                           href="{{ url_for('role.index_view') }}">
+                            <i class="fas fa-user-shield me-2"></i>
+                            Grupos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'userrole.index_view' %}active{% endif %}" 
+                           href="{{ url_for('userrole.index_view') }}">
+                            <i class="fas fa-link me-2"></i>
+                            Vínculos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'accesslog.index_view' %}active{% endif %}" 
+                           href="{{ url_for('accesslog.index_view') }}">
+                            <i class="fas fa-history me-2"></i>
+                            Logs de Acesso
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'geojsonfile.index_view' %}active{% endif %}" 
+                           href="{{ url_for('geojsonfile.index_view') }}">
+                            <i class="fas fa-map-marked-alt me-2"></i>
+                            Arquivos GeoJSON
+                        </a>
+                    </li>
+                </ul>
+
+                <hr>
+                <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                    <span>Configurações</span>
+                </h6>
+                <ul class="nav nav-pills flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">
+                            <i class="fas fa-cog me-2"></i>
+                            Configurações do Sistema
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">
+                            <i class="fas fa-question-circle me-2"></i>
+                            Ajuda
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="main-content">
+            <!-- Page header -->
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center py-3 mb-4 border-bottom">
+                <h1 class="h3 mb-0">{% block page_title %}{% endblock %}</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    {% block page_actions %}{% endblock %}
+                </div>
+            </div>
+
+            <!-- Flash messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show mb-4" role="alert">
+                            <div class="d-flex align-items-center">
+                                {% if category == 'success' %}
+                                    <i class="fas fa-check-circle me-2"></i>
+                                {% elif category == 'danger' %}
+                                    <i class="fas fa-exclamation-circle me-2"></i>
+                                {% elif category == 'warning' %}
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                {% else %}
+                                    <i class="fas fa-info-circle me-2"></i>
+                                {% endif %}
+                                <div>{{ message }}</div>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Page content -->
+            {% block admin_content %}{% endblock %}
+        </main>
+</div>
+
+<!-- JavaScript for sidebar toggle -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function() {
+                sidebar.classList.toggle('show');
+            });
+        }
+        
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(event) {
+            const isClickInside = sidebar.contains(event.target) || 
+                                (sidebarToggle && sidebarToggle.contains(event.target));
+            
+            if (!isClickInside && window.innerWidth < 768) {
+                sidebar.classList.remove('show');
+            }
+        });
+    });
+</script>
+{% endblock %}

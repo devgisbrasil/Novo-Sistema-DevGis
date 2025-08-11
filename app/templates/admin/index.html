@@ -1,22 +1,125 @@
-{% extends 'admin/master.html' %}
+{% extends 'admin/base.html' %}
 
-{% block body %}
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <h1 class="h4 mb-0">Administração</h1>
-  </div>
-  <div class="row g-3">
+{% block page_title %}Painel de Controle{% endblock %}
+
+{% block admin_content %}
+<div class="row">
     <div class="col-12">
-      <div class="card">
-        <div class="card-body">
-          <p class="mb-3">Bem-vindo(a) ao painel administrativo. Selecione um módulo:</p>
-          <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-outline-primary" href="{{ url_for('user.index_view') }}">Usuários</a>
-            <a class="btn btn-outline-primary" href="{{ url_for('role.index_view') }}">Papéis</a>
-            <a class="btn btn-outline-primary" href="{{ url_for('userrole.index_view') }}">Vínculos Usuário-Papel</a>
-            <a class="btn btn-outline-primary" href="{{ url_for('accesslog.index_view') }}">Logs de Acesso</a>
-          </div>
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0">Bem-vindo(a) ao Painel Administrativo</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">Selecione um módulo para gerenciar:</p>
+                
+                <div class="row g-4">
+                    <div class="col-md-6 col-lg-3">
+                        <a href="{{ url_for('admin_dashboard.index') }}" class="text-decoration-none">
+                            <div class="card h-100 border-0 shadow-sm hover-lift">
+                                <div class="card-body text-center p-4">
+                                    <div class="icon-circle bg-primary bg-opacity-10 text-primary mb-3 mx-auto">
+                                        <i class="fas fa-tachometer-alt fa-2x"></i>
+                                    </div>
+                                    <h5 class="h6 mb-0">Dashboard</h5>
+                                    <p class="small text-muted mb-0">Visão geral do sistema</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-3">
+                        <a href="{{ url_for('user.index_view') }}" class="text-decoration-none">
+                            <div class="card h-100 border-0 shadow-sm hover-lift">
+                                <div class="card-body text-center p-4">
+                                    <div class="icon-circle bg-success bg-opacity-10 text-success mb-3 mx-auto">
+                                        <i class="fas fa-users fa-2x"></i>
+                                    </div>
+                                    <h5 class="h6 mb-0">Usuários</h5>
+                                    <p class="small text-muted mb-0">Gerenciar contas de usuários</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-3">
+                        <a href="{{ url_for('role.index_view') }}" class="text-decoration-none">
+                            <div class="card h-100 border-0 shadow-sm hover-lift">
+                                <div class="card-body text-center p-4">
+                                    <div class="icon-circle bg-warning bg-opacity-10 text-warning mb-3 mx-auto">
+                                        <i class="fas fa-user-shield fa-2x"></i>
+                                    </div>
+                                    <h5 class="h6 mb-0">Grupos</h5>
+                                    <p class="small text-muted mb-0">Gerenciar grupos de permissões</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-3">
+                        <a href="{{ url_for('userrole.index_view') }}" class="text-decoration-none">
+                            <div class="card h-100 border-0 shadow-sm hover-lift">
+                                <div class="card-body text-center p-4">
+                                    <div class="icon-circle bg-info bg-opacity-10 text-info mb-3 mx-auto">
+                                        <i class="fas fa-link fa-2x"></i>
+                                    </div>
+                                    <h5 class="h6 mb-0">Vínculos</h5>
+                                    <p class="small text-muted mb-0">Gerenciar vínculos de usuários</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body">
+                                <h5 class="h6 mb-3">Atalhos Rápidos</h5>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <a href="{{ url_for('user.create_view') }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-plus me-1"></i> Novo Usuário
+                                    </a>
+                                    <a href="{{ url_for('role.create_view') }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-plus me-1"></i> Novo Grupo
+                                    </a>
+                                    <a href="{{ url_for('userrole.create_view') }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-plus me-1"></i> Novo Vínculo
+                                    </a>
+                                    <a href="{{ url_for('accesslog.index_view') }}" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-history me-1"></i> Ver Logs de Acesso
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
     </div>
-  </div>
+</div>
+
+<style>
+    .icon-circle {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+    
+    .hover-lift {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .hover-lift:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .hover-lift:hover .icon-circle {
+        transform: scale(1.05);
+    }
+</style>
 {% endblock %}

@@ -4,6 +4,28 @@
     html, body { height: 100%; }
     main.container { max-width: 100% !important; padding: 0; margin-top: 0 !important; }
     .map-wrapper { display: flex; height: calc(100vh - 56px); width: 100%; }
+    
+    /* Style for the save control */
+    .leaflet-bar a.leaflet-bar-part {
+      background-color: #fff;
+      border-bottom: 1px solid #ccc;
+      width: 30px;
+      height: 30px;
+      line-height: 30px !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      color: #333;
+    }
+    
+    .leaflet-bar a.leaflet-bar-part:hover {
+      background-color: #f4f4f4;
+    }
+    
+    .leaflet-bar a.leaflet-bar-part i {
+      font-size: 16px;
+    }
     .sidebar { width: 300px; background: #fff; border-right: 1px solid #e5e7eb; padding: 12px 12px 16px; overflow-y: auto; overflow-x: hidden; }
     .sidebar h2 { font-size: 0.95rem; margin: 0; font-weight: 700; }
     .sidebar .section { margin-bottom: 14px; }
@@ -157,11 +179,519 @@
     map.addLayer(editableGroup);
     const drawControl = new L.Control.Draw({
       position: 'topleft',
-      draw: { polygon: true, polyline: true, rectangle: true, circle: false, marker: true },
-      edit: { featureGroup: editableGroup }
+      draw: { 
+        polygon: { 
+          allowIntersection: false,
+          showArea: true,
+          metric: true,
+          shapeOptions: {
+            color: '#3388ff',
+            weight: 2,
+            fillOpacity: 0.2
+          }
+        }, 
+        polyline: {
+          shapeOptions: {
+            color: '#3388ff',
+            weight: 5,
+            opacity: 0.7
+          }
+        }, 
+        rectangle: {
+          shapeOptions: {
+            color: '#3388ff',
+            weight: 2,
+            fillOpacity: 0.2
+          }
+        }, 
+        circle: false, 
+        marker: {
+          icon: L.icon({
+            iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+            shadowSize: [41, 41]
+          })
+        } 
+      },
+      edit: { 
+        featureGroup: editableGroup,
+        remove: true
+      }
     });
+    
+    // Add draw control to map
     map.addControl(drawControl);
-    map.on(L.Draw.Event.CREATED, function (e) { editableGroup.addLayer(e.layer); });
+    
+    // Handle drawing events
+    map.on(L.Draw.Event.CREATED, function (e) {
+      const layer = e.layer;
+      editableGroup.addLayer(layer);
+      
+      // Add popup with feature info
+      const type = e.layerType;
+      const props = layer.feature?.properties || {};
+      const coords = JSON.stringify(layer.getLatLng ? layer.getLatLng() : layer.getBounds());
+      
+      let popupContent = `<div><b>Novo ${type}</b><br>`;
+      popupContent += `<small>Coordenadas: ${coords}</small>`;
+      
+      if (Object.keys(props).length > 0) {
+        popupContent += '<br>Propriedades:<ul>';
+        for (const [key, value] of Object.entries(props)) {
+          popupContent += `<li><b>${key}:</b> ${value}</li>`;
+        }
+        popupContent += '</ul>';
+      }
+      
+      layer.bindPopup(popupContent);
+    });
+    
+    // Add save button for drawn features
+    const SaveControl = L.Control.extend({
+      options: {
+        position: 'topleft'
+      },
+      
+      onAdd: function(map) {
+        console.log('Initializing save control');
+        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+        const link = L.DomUtil.create('a', 'leaflet-bar-part', container);
+        link.href = '#';
+        link.title = 'Salvar desenho como camada';
+        link.innerHTML = '<i class="fas fa-save" style="line-height: 30px;"></i>';
+        
+        // Store map reference
+        this._map = map;
+        
+        // Add click handler
+        const onClick = (e) => {
+          console.log('Save button clicked (direct handler)');
+          L.DomEvent.stopPropagation(e);
+          L.DomEvent.preventDefault(e);
+          this._saveDrawnFeatures();
+        };
+        
+        // Add event listeners
+        L.DomEvent.on(link, 'click', onClick);
+        L.DomEvent.on(link, 'dblclick', L.DomEvent.stopPropagation);
+        
+        // Make link focusable and add keyboard support
+        link.tabIndex = 0;
+        link.setAttribute('role', 'button');
+        link.setAttribute('aria-label', 'Salvar desenho');
+        
+        console.log('Save control initialized');
+        return container;
+      },
+      
+      _saveDrawnFeatures: async function() {
+        console.log('Save button clicked');
+        console.log('Editable layers count:', editableGroup.getLayers().length);
+        
+        if (editableGroup.getLayers().length === 0) {
+          console.log('No layers to save');
+          alert('Nenhum desenho para salvar. Desenhe algo no mapa primeiro.');
+          return;
+        }
+        
+        const name = prompt('Nome da nova camada:', 'Meu Desenho');
+        console.log('User entered name:', name);
+        if (!name) {
+          console.log('User cancelled save');
+          return;
+        }
+        
+        // Create a feature collection from drawn layers
+        const features = [];
+        editableGroup.getLayers().forEach(layer => {
+          if (layer.toGeoJSON) {
+            const geoJson = layer.toGeoJSON();
+            // Preserve any properties that were added to the feature
+            if (layer.feature && layer.feature.properties) {
+              geoJson.properties = { ...layer.feature.properties };
+            }
+            features.push(geoJson);
+          }
+        });
+        
+        if (features.length === 0) {
+          alert('Nenhum desenho válido para salvar.');
+          return;
+        }
+        
+        const featureCollection = {
+          type: 'FeatureCollection',
+          features: features
+        };
+        
+        try {
+          // Send to server
+          const response = await fetch('/sig/api/upload', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              name: name,
+              data: featureCollection
+            })
+          });
+          
+          if (!response.ok) {
+            const error = await response.text();
+            throw new Error(error || 'Falha ao salvar o desenho');
+          }
+          
+          const result = await response.json();
+          alert('Desenho salvo com sucesso!');
+          
+          // Clear the drawn features
+          editableGroup.clearLayers();
+          
+          // Reload the layers list
+          loadItems();
+          
+        } catch (error) {
+          console.error('Error saving drawing:', error);
+          alert(`Erro ao salvar o desenho: ${error.message}`);
+        }
+      }
+    });
+    
+    // Track if we're in drawing mode
+    let isDrawingMode = false;
+    
+    // Store the save button reference
+    let saveButton = null;
+    
+    // Add save control to the map if it doesn't exist
+    if (typeof window.SaveControl === 'undefined') {
+      window.SaveControl = L.Control.extend({
+        options: {
+          position: 'topleft'
+        },
+        
+        onAdd: function(map) {
+          const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+          const link = L.DomUtil.create('a', 'leaflet-bar-part', container);
+          link.href = '#';
+          link.title = 'Salvar Desenho';
+          link.innerHTML = '<i class="fas fa-save" style="line-height: 30px;"></i>';
+          
+          L.DomEvent.on(link, 'click', L.DomEvent.stopPropagation)
+            .on(link, 'click', L.DomEvent.preventDefault)
+            .on(link, 'click', () => this._saveDrawing());
+          
+          return container;
+        },
+        
+        _saveDrawing: async function() {
+          const layers = editableGroup.getLayers();
+          if (layers.length === 0) {
+            alert('Nenhum desenho para salvar. Desenhe algo no mapa primeiro.');
+            return;
+          }
+          
+          try {
+            // Create a feature collection from drawn layers
+            const features = [];
+            layers.forEach(layer => {
+              if (layer.toGeoJSON) {
+                const geoJson = layer.toGeoJSON();
+                if (layer.feature && layer.feature.properties) {
+                  geoJson.properties = { ...layer.feature.properties };
+                }
+                features.push(geoJson);
+              }
+            });
+            
+            if (features.length === 0) {
+              throw new Error('Nenhum desenho válido para salvar.');
+            }
+            
+            const featureCollection = {
+              type: 'FeatureCollection',
+              features: features
+            };
+            
+            // Show save dialog
+            const name = prompt('Nome da nova camada:', 'Meu Desenho');
+            if (!name) return;
+            
+            // Send to server
+            const response = await fetch('/sig/api/upload', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: name,
+                data: featureCollection
+              })
+            });
+            
+            if (!response.ok) {
+              const error = await response.text();
+              throw new Error(error || 'Falha ao salvar o desenho');
+            }
+            
+            const result = await response.json();
+            alert('Desenho salvo com sucesso!');
+            
+            // Clear the drawn features
+            editableGroup.clearLayers();
+            
+            // Reload the layers list
+            if (typeof loadItems === 'function') {
+              loadItems();
+            }
+            
+          } catch (error) {
+            console.error('Erro ao salvar desenho:', error);
+            alert(`Erro: ${error.message}`);
+          }
+        }
+      });
+    }
+    
+    // Add save control to the map
+    const saveControl = new window.SaveControl();
+    map.addControl(saveControl);
+    
+    // Function to save the drawn features
+    async function saveDrawnFeatures() {
+      console.log('Saving drawn features...');
+      console.log('Editable layers count:', editableGroup.getLayers().length);
+      
+      if (editableGroup.getLayers().length === 0) {
+        console.log('No layers to save');
+        alert('Nenhum desenho para salvar. Desenhe algo no mapa primeiro.');
+        return;
+      }
+      
+      try {
+        // Create a custom modal for better UX
+        const modalHtml = `
+          <div class="modal fade" id="saveLayerModal" tabindex="-1" aria-labelledby="saveLayerModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="saveLayerModalLabel">Salvar Desenho</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="mb-3">
+                    <label for="layerName" class="form-label">Nome da Camada</label>
+                    <input type="text" class="form-control" id="layerName" value="Meu Desenho">
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                  <button type="button" class="btn btn-primary" id="confirmSave">Salvar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        // Add modal to the page if it doesn't exist
+        if (!document.getElementById('saveLayerModal')) {
+          document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('saveLayerModal'));
+        modal.show();
+        
+        // Focus the input field
+        document.getElementById('layerName').focus();
+        
+        // Wait for user to click Save or Cancel
+        return new Promise((resolve) => {
+          document.getElementById('confirmSave').onclick = async () => {
+            const name = document.getElementById('layerName').value.trim();
+            if (!name) {
+              alert('Por favor, insira um nome para a camada.');
+              return;
+            }
+            
+            modal.hide();
+            await processSave(name);
+            resolve();
+          };
+          
+          // Also handle Enter key in the input field
+          document.getElementById('layerName').onkeydown = (e) => {
+            if (e.key === 'Enter') {
+              document.getElementById('confirmSave').click();
+            }
+          };
+        });
+        
+      } catch (error) {
+        console.error('Error in save dialog:', error);
+        alert('Erro ao abrir a caixa de diálogo de salvamento.');
+      }
+    }
+    
+    // Process the save operation
+    async function processSave(name) {
+      console.log('Processing save with name:', name);
+      
+      if (!name) {
+        console.log('No name provided for save');
+        return;
+      }
+      
+      // Create a feature collection from drawn layers
+      const features = [];
+      editableGroup.getLayers().forEach(layer => {
+        if (layer.toGeoJSON) {
+          const geoJson = layer.toGeoJSON();
+          // Preserve any properties that were added to the feature
+          if (layer.feature && layer.feature.properties) {
+            geoJson.properties = { ...layer.feature.properties };
+          }
+          features.push(geoJson);
+        }
+      });
+      
+      if (features.length === 0) {
+        alert('Nenhum desenho válido para salvar.');
+        return;
+      }
+      
+      const featureCollection = {
+        type: 'FeatureCollection',
+        features: features
+      };
+      
+      try {
+        // Send to server
+        const response = await fetch('/sig/api/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: name,
+            data: featureCollection
+          })
+        });
+        
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error || 'Falha ao salvar o desenho');
+        }
+        
+        const result = await response.json();
+        alert('Desenho salvo com sucesso!');
+        
+        // Clear the drawn features
+        editableGroup.clearLayers();
+        
+        // Reload the layers list
+        loadItems();
+        
+      } catch (error) {
+        console.error('Error saving drawing:', error);
+        alert(`Erro ao salvar o desenho: ${error.message}`);
+      }
+    }
+    
+    // Function to initialize the save button handler
+    function initSaveButton() {
+      // Try to find the save button in the edit control
+      const saveButtons = document.querySelectorAll('.leaflet-draw-actions a.leaflet-draw-save');
+      
+      if (saveButtons.length > 0) {
+        // Use the first matching button
+        saveButton = saveButtons[0];
+        
+        if (!saveButton._initialized) {
+          console.log('Initializing save button:', saveButton);
+          
+          // Mark as initialized to prevent multiple bindings
+          saveButton._initialized = true;
+          
+          // Store the original click handler if it exists
+          const originalClick = saveButton.onclick;
+          
+          // Create a new click handler
+          const handleSaveClick = async (e) => {
+            console.log('Save button clicked');
+            
+            // Check if we're in drawing mode
+            if (isDrawingMode) {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Handling save for drawing mode');
+              
+              try {
+                await saveDrawnFeatures();
+                // After saving, exit drawing mode
+                if (L.Draw && L.Draw.getCurrentInstance()) {
+                  L.Draw.getCurrentInstance().disable();
+                }
+              } catch (error) {
+                console.error('Error saving drawing:', error);
+              }
+            } else if (originalClick) {
+              // Call the original handler for normal save operations
+              console.log('Using original save handler');
+              return originalClick.call(this, e);
+            }
+          };
+          
+          // Add our click handler as a secondary handler
+          saveButton.addEventListener('click', handleSaveClick);
+          
+          // Also handle Enter key for accessibility
+          saveButton.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              handleSaveClick(e);
+            }
+          });
+          
+          console.log('Save button initialized');
+        }
+      } else {
+        console.log('Save button not found, will retry...');
+        // Try again after a short delay if the button isn't found yet
+        setTimeout(initSaveButton, 500);
+      }
+    }
+    
+    // Initialize the save button when the document is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize save button
+      initSaveButton();
+      
+      // Also try initializing when the edit control is shown
+      map.on('draw:drawstart', function() {
+        isDrawingMode = true;
+        console.log('Drawing mode: started');
+        // Re-initialize the save button to make sure we have the latest reference
+        setTimeout(initSaveButton, 100);
+      });
+      
+      map.on('draw:drawstop', function() {
+        isDrawingMode = false;
+        console.log('Drawing mode: stopped');
+      });
+    });
+    
+    // Update drawing mode state when draw controls are used
+    map.on('draw:drawstart', function() {
+      isDrawingMode = true;
+      console.log('Drawing mode: started');
+    });
+    
+    map.on('draw:drawstop', function() {
+      isDrawingMode = false;
+      console.log('Drawing mode: stopped');
+    });
 
     // My GeoJSON layers state
     const userLayers = new Map(); // id -> layer

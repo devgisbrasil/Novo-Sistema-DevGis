@@ -1,10 +1,36 @@
-{% extends 'base.html' %}
-
 {#
-  Ponte de layout para o Flask-Admin usar o mesmo visual do site.
-  As páginas do Admin preencherão o bloco "body" abaixo.
+  Template base para todas as páginas do Flask-Admin.
+  Herda do nosso template admin/base.html para manter a consistência visual.
 #}
+{% extends 'admin/base.html' %}
 
-{% block content %}
+{% block admin_content %}
+  {# Flash messages #}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show mb-4" role="alert">
+          <div class="d-flex align-items-center">
+            {% if category == 'success' %}
+              <i class="fas fa-check-circle me-2"></i>
+            {% elif category == 'danger' %}
+              <i class="fas fa-exclamation-circle me-2"></i>
+            {% elif category == 'warning' %}
+              <i class="fas fa-exclamation-triangle me-2"></i>
+            {% else %}
+              <i class="fas fa-info-circle me-2"></i>
+            {% endif %}
+            <div>{{ message }}</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+  
+  {# Main content block for Flask-Admin views #}
   {% block body %}{% endblock %}
+  
+  {# Additional scripts block #}
+  {% block tail %}{% endblock %}
 {% endblock %}
