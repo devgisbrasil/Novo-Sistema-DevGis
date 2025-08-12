@@ -364,12 +364,10 @@
     // Track if we're in drawing mode
     let isDrawingMode = false;
     
-    // Remove the old save button reference since we'll create a new one
-    
     // Add a dedicated save button to the map controls
-    const saveButtonControl = L.control({position: 'topleft'});
+    const saveControl = L.control({position: 'topleft'});
     
-    saveButtonControl.onAdd = function(map) {
+    saveControl.onAdd = function(map) {
       const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
       div.innerHTML = `
         <a href="#" class="leaflet-draw-edit-edit" title="Salvar Desenho" style="display: block;">
@@ -449,7 +447,7 @@
     };
     
     // Add the save button to the map
-    saveButton.addTo(map);
+    saveControl.addTo(map);
     
     // Function to save the drawn features
     async function saveDrawnFeatures() {
