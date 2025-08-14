@@ -165,6 +165,9 @@ def create_app():
 
     class RoleModelView(SecureModelView):
         # Configurações da visualização
+        can_create = True
+        can_edit = True
+        can_delete = True
         column_list = ['name', 'description', 'users_count', 'permissions_count', 'created_at', 'updated_at']
         column_searchable_list = ['name', 'description']
         column_filters = ['created_at', 'updated_at']
@@ -248,6 +251,7 @@ def create_app():
             return self.create_form(obj)
             
         # Sobrescreve o método create_view para passar as permissões para o template
+        @expose('/new/', methods=('GET', 'POST'))
         def create_view(self):
             from app.models import Permission
             
@@ -268,11 +272,12 @@ def create_app():
             return response
             
         # Sobrescreve o método edit_view para passar as permissões para o template
-        def edit_view(self, id):
+        @expose('/edit/', methods=('GET', 'POST'))
+        def edit_view(self):
             from app.models import Permission
             
             # Chama a implementação padrão
-            response = super().edit_view(id)
+            response = super().edit_view()
             
             # Verifica se é uma resposta de renderização
             if hasattr(response, 'get_data') and response.status_code == 200:
