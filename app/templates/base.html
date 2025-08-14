@@ -22,22 +22,7 @@
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item"><a class="nav-link" href="/">Bem-vindo</a></li>
-          {% if current_user.is_authenticated and current_user.has_role('admin') %}
-            <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Admin</a>
-              <ul class="dropdown-menu" aria-labelledby="adminDropdown">
-                <li><a class="dropdown-item" href="{{ url_for('admin_dashboard.index') }}"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="{{ url_for('user.index_view') }}"><i class="fas fa-users me-2"></i>Usuários</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('role.index_view') }}"><i class="fas fa-user-shield me-2"></i>Grupos</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('userrole.index_view') }}"><i class="fas fa-link me-2"></i>Vínculos</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="{{ url_for('accesslog.index_view') }}"><i class="fas fa-history me-2"></i>Logs de Acesso</a></li>
-              </ul>
-            </li>
-          {% else %}
-            <li class="nav-item"><a class="nav-link" href="/admin/">Admin</a></li>
-          {% endif %}
+          
           {% if current_user.is_authenticated %}
             <li class="nav-item dropdown" id="nav-sigweb">
               <a class="nav-link dropdown-toggle" href="#" id="sigwebDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">SIG WEB</a>

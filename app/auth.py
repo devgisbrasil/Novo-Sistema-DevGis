@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from . import db
-from .models import User, Role
+from .models import User
 from .forms import LoginForm, RegisterForm
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -47,13 +47,6 @@ def register():
         user = User(name=form.name.data.strip(), email=form.email.data.lower())
         user.set_password(form.password.data)
         db.session.add(user)
-        # grant admin to the very first user
-        if User.query.count() == 0:
-            admin_role = Role.query.filter_by(name="admin").first()
-            if not admin_role:
-                admin_role = Role(name="admin")
-                db.session.add(admin_role)
-            user.roles.append(admin_role)
         db.session.commit()
         flash("Cadastro realizado. Faça o login.", "success")
         return redirect(url_for("auth.login"))
