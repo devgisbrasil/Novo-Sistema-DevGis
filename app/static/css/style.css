@@ -1,14 +1,14 @@
 :root{
-  --brand:#1a5632;
-  --brand-100:#e6f0ea;
-  --brand-200:#c2dacd;
-  --brand-300:#9bc1ad;
-  --brand-400:#6ea787;
-  --brand-500:#1a5632; /* principal */
-  --brand-600:#164a2b;
-  --brand-700:#123e24;
-  --brand-800:#0e331d;
-  --brand-900:#0a2716;
+  --brand:#45534b;
+  --brand-100:#45534b;
+  --brand-200:#45534b;
+  --brand-300:#45534b;
+  --brand-400:#45534b;
+  --brand-500:#45534b; /* principal */
+  --brand-600:#45534b;
+  --brand-700:#45534b;
+  --brand-800:#45534b;
+  --brand-900:#45534b;
 }
 
 .bg-primary{background-color:var(--brand-500)!important}
