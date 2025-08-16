@@ -3,171 +3,132 @@
   <style>
     html, body { height: 100%; }
     main.container { max-width: 100% !important; padding: 0; margin-top: 0 !important; }
-    .map-wrapper { display: flex; height: calc(100vh - 56px); width: 100%; }
-    
-    /* Style for the save control */
-    .leaflet-bar a.leaflet-bar-part {
-      background-color: #fff;
-      border-bottom: 1px solid #ccc;
-      width: 30px;
-      height: 30px;
-      line-height: 30px !important;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-decoration: none;
-      color: #333;
+    .map-wrapper { display: flex; height: calc(100vh - 56px); width: 100%; position: relative; }
+    #map { flex: 1; }
+
+    /* --- THEME VARIABLES --- */
+    :root {
+      --ui-bg: #2D3748;
+      --ui-bg-hover: #4A5568;
+      --ui-border: rgba(255,255,255,.1);
+      --ui-shadow: 0 6px 16px rgba(0,0,0,.2);
+      --ui-size: 40px;
     }
-    
-    .leaflet-bar a.leaflet-bar-part:hover {
-      background-color: #f4f4f4;
-    }
-    
-    .leaflet-bar a.leaflet-bar-part i {
-      font-size: 16px;
-    }
-    /* Updated sidebar styles */
+
+    /* --- SIDEBAR STYLES --- */
     .sidebar {
       width: 300px;
-      background: #2D3748; /* Dark background */
-      color: #E2E8F0; /* Light text */
+      background: #2D3748;
+      color: #E2E8F0;
       padding: 16px;
       overflow-y: auto;
       overflow-x: hidden;
       transition: width 0.3s ease, padding 0.3s ease;
       box-shadow: 3px 0 10px rgba(0,0,0,0.1);
+      z-index: 400;
     }
-    .sidebar h2 {
-      font-size: 1rem;
-      margin: 0;
-      font-weight: 600;
-      color: #fff; /* White for headers */
-    }
-    .sidebar .section {
-      margin-bottom: 16px;
-      padding: 12px;
-      background: rgba(255,255,255,0.05); /* Slight contrast for sections */
-      border-radius: 8px;
-    }
-    .sidebar .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    .sidebar .section-header .badge {
-      background: #4A5568; /* Darker badge */
-      color: #fff;
-    }
-    .sidebar hr {
-      margin: 16px 0;
-      border-color: #4A5568; /* Darker separator */
-    }
-    .sidebar .muted {
-      color: #A0AEC0; /* Muted text */
-      font-size: 0.9rem;
-    }
-    .sidebar .list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    .sidebar .list li {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid #4A5568; /* Darker border */
-      flex-wrap: wrap;
-    }
-    .sidebar .item-label {
-      min-width: 0;
-      flex: 1 1 100%;
-      display: flex;
-      align-items: center;
-      gap: 12px; /* Increased gap */
-    }
-    .sidebar .item-label .name {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      display: inline-block;
-      max-width: 160px;
-      color: #E2E8F0; /* Light text */
-    }
-    .sidebar .item-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px; /* Increased gap */
-      width: 100%;
-      margin-top: 8px;
-    }
-    .sidebar .item-actions .btn-ico {
-      flex: 0 0 auto;
-      background: #4A5568; /* Darker button */
-      color: #fff;
-      border: none;
-    }
-    .sidebar .item-actions .btn-ico:hover {
-      background: #718096; /* Lighter on hover */
-    }
-    .btn-ico {
-      width: 32px; /* Slightly larger */
-      height: 32px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-    .sidebar .section-box {
-      background: rgba(255,255,255,0.05); /* Slight contrast */
-      border: 1px solid #4A5568; /* Darker border */
-      border-radius: 8px;
-      padding: 12px;
-    }
-    /* Add icons to section headers */
-    .section-header h2::before {
-      font-family: "Font Awesome 6 Free";
-      display: inline-block;
-      margin-right: 8px;
-      font-weight: 900;
-    }
-    .section-basemap h2::before {
-      content: "\f0ac"; /* Globe icon */
-    }
-    .section-layers h2::before {
-      content: "\f5fd"; /* Layer group icon */
-    }
-    .section-upload h2::before {
-      content: "\f093"; /* Upload icon */
-    }
-    /* Adjust the toggle button */
-    .sidebar-toggle .btn {
-      background: #4A5568;
-      color: #fff;
-      border: none;
-    }
-    .sidebar-toggle .btn:hover {
-      background: #718096;
-    }
-    #map { flex: 1; }
-    /* Enhancements: spacing, actions, toggle */
-    .map-wrapper { position: relative; }
-    .sidebar .list li { gap: 8px; }
-    .sidebar .item-actions { display: flex; gap: 6px; }
-    .sidebar .btn-icon { border: 1px solid #e5e7eb; background: #f8f9fa; padding: 2px 6px; border-radius: 4px; font-size: 12px; cursor: pointer; }
-    .sidebar .btn-icon:hover { background: #e9ecef; }
-    .sidebar-toggle { position: absolute; left: 300px; top: 50%; z-index: 500; transform: translateX(-50%) translateY(-50%); }
-    .sidebar-toggle .btn { padding: 8px 10px; font-size: 14px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
-    .sidebar-toggle .btn.btn-primary { background: var(--brand-500); border-color: var(--brand-600); }
-    .sidebar-toggle .btn.btn-primary:hover { background: var(--brand-600); border-color: var(--brand-700); }
+    .sidebar h2 { font-size: 1rem; margin: 0; font-weight: 600; color: #fff; }
+    .sidebar .section { margin-bottom: 16px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; }
+    .sidebar .section-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; cursor: pointer; }
+    .sidebar .section-header .badge { background: #4A5568; color: #fff; }
+    .sidebar hr { margin: 16px 0; border-color: #4A5568; }
+    .sidebar .muted { color: #A0AEC0; font-size: 0.9rem; }
+    .sidebar .list { list-style: none; padding: 0; margin: 0; }
+    .sidebar .list li { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #4A5568; flex-wrap: wrap; }
+    .sidebar .item-label { min-width: 0; flex: 1 1 100%; display: flex; align-items: center; gap: 12px; }
+    .sidebar .item-label .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; max-width: 160px; color: #E2E8F0; }
+    .sidebar .item-actions { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 8px; }
+    .sidebar .item-actions .btn-ico { flex: 0 0 auto; background: #4A5568; color: #fff; border: none; }
+    .sidebar .item-actions .btn-ico:hover { background: #718096; }
+    .btn-ico { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: 6px; font-size: 14px; }
+    .section-header h2::before { font-family: "Font Awesome 6 Free"; display: inline-block; margin-right: 8px; font-weight: 900; }
+    .section-basemap h2::before { content: "\f0ac"; }
+    .section-layers h2::before { content: "\f5fd"; }
+    .section-upload h2::before { content: "\f093"; }
+    .sidebar-toggle { position: absolute; bottom: 20px; left: 20px; z-index: 500; }
+        .sidebar-toggle .btn { padding: 8px 12px; font-size: 14px; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.15); background: #fff; color: var(--ui-bg); border: 1px solid #e2e8f0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+        .sidebar-toggle .btn:hover { background: #f7fafc; }
     .collapsed .sidebar { width: 0; padding: 0; border-right: none; }
-    .collapsed .sidebar-toggle { left: 0; transform: translateX(-50%); }
+    
+    /* --- UNIFIED LEAFLET CONTROL STYLES --- */
+    .leaflet-control { background: transparent !important; border: none !important; box-shadow: none !important; }
+    .leaflet-bar, .leaflet-draw-toolbar { background-color: transparent !important; border: none !important; box-shadow: none !important; }
     .leaflet-top.leaflet-right { margin-right: 10px; }
     .leaflet-top.leaflet-left { margin-left: 10px; }
+
+    /* All Buttons (Zoom, Draw, Edit/Delete) */
+    .leaflet-bar a, .leaflet-draw-toolbar a, .leaflet-draw-actions a {
+      background-color: var(--ui-bg) !important;
+      border-radius: 8px !important;
+      width: var(--ui-size) !important;
+      height: var(--ui-size) !important;
+      margin-bottom: 8px !important;
+      color: #fff !important;
+      box-shadow: var(--ui-shadow);
+      border: 1px solid var(--ui-border) !important;
+      transition: all 0.2s ease;
+      /* Flexbox for perfect centering */
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      line-height: 1 !important; /* Critical: override default line-height */
+      /* Font Awesome icon styles */
+      font-family: 'Font Awesome 6 Free';
+      font-weight: 900;
+      font-size: 16px;
+      background-image: none !important; /* Remove legacy background images */
+    }
+
+    /* Hover State for All Buttons */
+    .leaflet-bar a:hover, .leaflet-draw-toolbar a:hover, .leaflet-draw-actions a:hover {
+      background-color: #fff !important;
+      color: var(--ui-bg) !important;
+    }
+
+    /* Style the drawing actions (Finish, Delete, Cancel) */
+    .leaflet-draw-actions {
+      top: 0 !important;
+      right: 50px !important; /* Position next to the 40px toolbar + 10px gap */
+      display: flex;
+      gap: 8px;
+    }
+    .leaflet-draw-actions li { list-style: none; }
+    .leaflet-draw-actions a {
+      background: var(--ui-bg) !important;
+      color: #fff !important;
+      border-radius: 8px !important;
+      padding: 8px 12px !important;
+      font-family: sans-serif !important;
+      font-size: 14px !important;
+      height: auto !important;
+      width: auto !important;
+    }
+    .leaflet-draw-actions a:hover {
+      background: #fff !important;
+      color: var(--ui-bg) !important;
+    }
+    /* Hide the cancel button's list item */
+    .leaflet-draw-actions-cancel { display: none !important; }
+
+    /* Spacing & Specifics */
+    .leaflet-bar a:last-child { margin-bottom: 15px !important; }
+    .leaflet-draw-toolbar a { border-bottom: none !important; }
+
+    /* Zoom Control Icons (+/-) */
+    .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+      font-size: 1.5rem !important;
+      font-weight: bold !important;
+      font-family: sans-serif !important; /* Use default font for +/- */
+    }
+
+    /* Draw Control Icons (Font Awesome) */
+    .leaflet-draw-draw-polyline::before { content: '\f1e0'; } /* share-alt */
+    .leaflet-draw-draw-polygon::before { content: '\f61f'; }  /* shapes */
+    .leaflet-draw-draw-rectangle::before { content: '\f0c8'; } /* square */
+    .leaflet-draw-draw-marker::before { content: '\f3c5'; }   /* map-marker-alt */
+    .leaflet-draw-edit-edit::before { content: '\f044'; }     /* edit */
+    .leaflet-draw-edit-remove::before { content: '\f2ed'; }  /* trash-alt */
+
     /* Upload nicer visuals */
     .dropzone { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 10px; background: #fff; text-align: center; color: #64748b; }
     .dropzone.dragover { background: #f1f5f9; border-color: #94a3b8; }
@@ -178,7 +139,6 @@
       <div class="section section-box section-basemap">
         <div class="section-header">
           <h2>Camada base</h2>
-          <button class="btn btn-sm btn-outline-secondary" type="button" data-collapse="#sec-basemap">Ocultar</button>
         </div>
         <div id="sec-basemap">
           <div class="form-check"><input class="form-check-input" type="radio" name="basemap" id="bm-road" value="road" checked><label class="form-check-label" for="bm-road">OSM (Rodoviário)</label></div>
@@ -208,7 +168,6 @@
           <h2>Novo GeoJSON</h2>
           <div class="d-flex gap-2">
             <button id="btn-show-upload" class="btn btn-sm btn-success" type="button">Inserir nova camada</button>
-            <button class="btn btn-sm btn-outline-secondary" type="button" data-collapse="#sec-upload">Ocultar</button>
           </div>
         </div>
         <div id="sec-upload" style="display:none">
@@ -233,8 +192,8 @@
     </aside>
     <div id="map"></div>
     <div class="sidebar-toggle">
-      <button type="button" id="btn-toggle-sidebar" class="btn btn-primary" title="Recolher/Expandir menu">
-        <span id="icon-open">«</span><span id="icon-closed" style="display:none">»</span>
+      <button type="button" id="btn-toggle-sidebar" class="btn" title="Recolher/Expandir menu">
+        <i class="fas fa-bars"></i>
       </button>
     </div>
   </div>
@@ -273,8 +232,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
   <script>
-    const map = L.map('map', { zoomControl: false });
-    L.control.zoom({ position: 'topright' }).addTo(map);
+    const map = L.map('map', { center: [-15.7801, -47.9292], zoom: 5, zoomControl: false });
     // Base layers
     const baseLayers = {
       road: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}),
@@ -290,12 +248,13 @@
     const editableGroup = new L.FeatureGroup();
     map.addLayer(editableGroup);
     const drawControl = new L.Control.Draw({
-      position: 'topleft',
+      position: 'topright',
       draw: { 
         polygon: { 
           allowIntersection: false,
           showArea: true,
           metric: true,
+          drawError: { color: '#e1e1e1', timeout: 1000 },
           shapeOptions: {
             color: '#3388ff',
             weight: 2,
@@ -317,6 +276,7 @@
           }
         }, 
         circle: false, 
+        circlemarker: false,
         marker: {
           icon: L.icon({
             iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
@@ -328,9 +288,10 @@
           })
         } 
       },
-      edit: { 
+      edit: {
         featureGroup: editableGroup,
-        remove: true
+        remove: true,
+        edit: true
       }
     });
     
@@ -373,7 +334,7 @@
         const link = L.DomUtil.create('a', 'leaflet-bar-part', container);
         link.href = '#';
         link.title = 'Salvar desenho como camada';
-        link.innerHTML = '<i class="fas fa-save" style="line-height: 30px;"></i>';
+        link.innerHTML = '<i class="fas fa-save"></i>';
         
         // Store map reference
         this._map = map;
@@ -477,13 +438,13 @@
     let isDrawingMode = false;
     
     // Add a dedicated save button to the map controls
-    const saveControl = L.control({position: 'topleft'});
+    const saveControl = L.control({position: 'topright'});
     
     saveControl.onAdd = function(map) {
       const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
       div.innerHTML = `
-        <a href="#" class="leaflet-draw-edit-edit" title="Salvar Desenho" style="display: block;">
-          <i class="fas fa-save" style="line-height: 30px; width: 30px; text-align: center; display: inline-block;"></i>
+        <a href="#" class="leaflet-bar-part" title="Salvar Desenho">
+          <i class="fas fa-save"></i>
         </a>
       `;
       
@@ -785,15 +746,7 @@
     });
     
     // Update drawing mode state when draw controls are used
-    map.on('draw:drawstart', function() {
-      isDrawingMode = true;
-      console.log('Drawing mode: started');
-    });
-    
-    map.on('draw:drawstop', function() {
-      isDrawingMode = false;
-      console.log('Drawing mode: stopped');
-    });
+    map.on('draw:edited', () => { editedDirty = true; });
 
     // My GeoJSON layers state
     const userLayers = new Map(); // id -> layer
@@ -955,26 +908,10 @@
     document.getElementById('btn-toggle-sidebar').addEventListener('click', () => {
       const wrapper = document.querySelector('.map-wrapper');
       wrapper.classList.toggle('collapsed');
-      const open = !wrapper.classList.contains('collapsed');
-      document.getElementById('icon-open').style.display = open ? '' : 'none';
-      document.getElementById('icon-closed').style.display = open ? 'none' : '';
-      setTimeout(() => map.invalidateSize(), 220);
+      setTimeout(() => map.invalidateSize(), 310); // Match transition duration
     });
 
-    // Back button control
-    const BackControl = L.Control.extend({
-      options: { position: 'topleft' },
-      onAdd: function () {
-        const container = L.DomUtil.create('div', 'leaflet-bar');
-        const btn = L.DomUtil.create('a', '', container);
-        btn.innerHTML = '←';
-        btn.href = "{{ url_for('sig.files') }}";
-        return container;
-      }
-    });
-    map.addControl(new BackControl());
-
-    // --- Edit session control (Salvar / Cancelar) ---
+    // --- Edit session control (Salvar) ---
     const EditSessionControl = L.Control.extend({
       options: { position: 'topleft' },
       onAdd: function () {
