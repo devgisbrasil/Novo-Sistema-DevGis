@@ -17,16 +17,6 @@ import zipfile
 
 sig_bp = Blueprint("sig", __name__, url_prefix="/sig")
 
-# Storage for orthomosaics (GeoTIFFs)
-ORTHO_DIR = os.getenv(
-    "ORTHO_DIR",
-    os.path.join(os.path.dirname(__file__), "storage", "orthomosaics"),
-)
-ALLOWED_ORTHO_EXTS = {".tif", ".tiff", ".geotiff"}
-
-# Ensure directory exists at runtime
-os.makedirs(ORTHO_DIR, exist_ok=True)
-
 
 def _validate_geojson(obj):
     # Very light validation: require type and for FeatureCollection features list
@@ -409,86 +399,6 @@ def api_upload():
 @login_required
 def map_view():
     return render_template("sig/map.html")
-
-
-# ----------------------
-# Orthomosaics management
-# ----------------------
-
-def _is_allowed_ortho(filename: str):
-    ext = os.path.splitext(filename.lower())[1]
-    return ext in ALLOWED_ORTHO_EXTS
-
-
-@sig_bp.get("/orthomosaics")
-@login_required
-def orthomosaics_index():
-    """List available orthomosaics and show upload form."""
-    try:
-        files = []
-        for fname in sorted(os.listdir(ORTHO_DIR)):
-            path = os.path.join(ORTHO_DIR, fname)
-            if os.path.isfile(path) and _is_allowed_ortho(fname):
-                stat = os.stat(path)
-                files.append({
-                    "name": fname,
-                    "size": stat.st_size,
-                })
-    except Exception as e:
-        flash(f"Erro ao listar ortomosaicos: {e}", "danger")
-        files = []
-    return render_template("sig/orthomosaics.html", files=files)
-
-
-@sig_bp.post("/orthomosaics/upload")
-@login_required
-def orthomosaics_upload():
-    """Handle upload of GeoTIFF files (.tif/.tiff/.geotiff)."""
-    if "file" not in request.files:
-        flash("Nenhum arquivo enviado.", "warning")
-        return redirect(url_for("sig.orthomosaics_index"))
-
-    f = request.files.get("file")
-    if not f or f.filename.strip() == "":
-        flash("Arquivo inválido.", "warning")
-        return redirect(url_for("sig.orthomosaics_index"))
-
-    filename = secure_filename(f.filename)
-    if not _is_allowed_ortho(filename):
-        flash("Formato não suportado. Envie .tif, .tiff ou .geotiff.", "danger")
-        return redirect(url_for("sig.orthomosaics_index"))
-
-    # Ensure unique filename to avoid overwrite
-    base, ext = os.path.splitext(filename)
-    candidate = filename
-    counter = 1
-    while os.path.exists(os.path.join(ORTHO_DIR, candidate)):
-        candidate = f"{base}_{counter}{ext}"
-        counter += 1
-
-    save_path = os.path.join(ORTHO_DIR, candidate)
-    try:
-        f.save(save_path)
-        flash("Upload realizado com sucesso!", "success")
-    except Exception as e:
-        flash(f"Erro ao salvar arquivo: {e}", "danger")
-
-    return redirect(url_for("sig.orthomosaics_index"))
-
-
-@sig_bp.get("/orthomosaics/download/<path:filename>")
-@login_required
-def orthomosaics_download(filename: str):
-    """Secure download of a stored orthomosaic."""
-    safe_name = secure_filename(filename)
-    path = os.path.join(ORTHO_DIR, safe_name)
-    if not os.path.exists(path) or not _is_allowed_ortho(safe_name):
-        abort(404)
-    try:
-        # as_attachment to force proper download with file name
-        return send_file(path, as_attachment=True, download_name=safe_name)
-    except Exception:
-        abort(500)
 
 
 @sig_bp.put("/api/files/<int:file_id>")

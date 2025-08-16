@@ -26,21 +26,133 @@
     .leaflet-bar a.leaflet-bar-part i {
       font-size: 16px;
     }
-    .sidebar { width: 300px; background: #fff; border-right: 1px solid #e5e7eb; padding: 12px 12px 16px; overflow-y: auto; overflow-x: hidden; }
-    .sidebar h2 { font-size: 0.95rem; margin: 0; font-weight: 700; }
-    .sidebar .section { margin-bottom: 14px; }
-    .sidebar .section-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-    .sidebar .section-header .badge { background: var(--brand-100, #e6f2ec); color: var(--brand-700, #144429); border: 1px solid var(--brand-200, #cfe6db); }
-    .sidebar hr { margin: 10px 0; color: #e9ecef; }
-    .sidebar .muted { color: #6c757d; font-size: .9rem; }
-    .sidebar .list { list-style: none; padding: 0; margin: 0; }
-    .sidebar .list li { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #eee; flex-wrap: wrap; }
-    .sidebar .item-label { min-width: 0; flex: 1 1 100%; display: flex; align-items: center; gap: 8px; }
-    .sidebar .item-label .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; max-width: 160px; }
-    .sidebar .item-actions { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 6px; }
-    .sidebar .item-actions .btn-ico { flex: 0 0 auto; }
-    .btn-ico { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: 6px; font-size: 14px; }
-    .sidebar .section-box { background: #fafafa; border: 1px solid #eef0f2; border-radius: 8px; padding: 10px; }
+    /* Updated sidebar styles */
+    .sidebar {
+      width: 300px;
+      background: #2D3748; /* Dark background */
+      color: #E2E8F0; /* Light text */
+      padding: 16px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      transition: width 0.3s ease, padding 0.3s ease;
+      box-shadow: 3px 0 10px rgba(0,0,0,0.1);
+    }
+    .sidebar h2 {
+      font-size: 1rem;
+      margin: 0;
+      font-weight: 600;
+      color: #fff; /* White for headers */
+    }
+    .sidebar .section {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: rgba(255,255,255,0.05); /* Slight contrast for sections */
+      border-radius: 8px;
+    }
+    .sidebar .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .sidebar .section-header .badge {
+      background: #4A5568; /* Darker badge */
+      color: #fff;
+    }
+    .sidebar hr {
+      margin: 16px 0;
+      border-color: #4A5568; /* Darker separator */
+    }
+    .sidebar .muted {
+      color: #A0AEC0; /* Muted text */
+      font-size: 0.9rem;
+    }
+    .sidebar .list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .sidebar .list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #4A5568; /* Darker border */
+      flex-wrap: wrap;
+    }
+    .sidebar .item-label {
+      min-width: 0;
+      flex: 1 1 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px; /* Increased gap */
+    }
+    .sidebar .item-label .name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: inline-block;
+      max-width: 160px;
+      color: #E2E8F0; /* Light text */
+    }
+    .sidebar .item-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px; /* Increased gap */
+      width: 100%;
+      margin-top: 8px;
+    }
+    .sidebar .item-actions .btn-ico {
+      flex: 0 0 auto;
+      background: #4A5568; /* Darker button */
+      color: #fff;
+      border: none;
+    }
+    .sidebar .item-actions .btn-ico:hover {
+      background: #718096; /* Lighter on hover */
+    }
+    .btn-ico {
+      width: 32px; /* Slightly larger */
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .sidebar .section-box {
+      background: rgba(255,255,255,0.05); /* Slight contrast */
+      border: 1px solid #4A5568; /* Darker border */
+      border-radius: 8px;
+      padding: 12px;
+    }
+    /* Add icons to section headers */
+    .section-header h2::before {
+      font-family: "Font Awesome 6 Free";
+      display: inline-block;
+      margin-right: 8px;
+      font-weight: 900;
+    }
+    .section-basemap h2::before {
+      content: "\f0ac"; /* Globe icon */
+    }
+    .section-layers h2::before {
+      content: "\f5fd"; /* Layer group icon */
+    }
+    .section-upload h2::before {
+      content: "\f093"; /* Upload icon */
+    }
+    /* Adjust the toggle button */
+    .sidebar-toggle .btn {
+      background: #4A5568;
+      color: #fff;
+      border: none;
+    }
+    .sidebar-toggle .btn:hover {
+      background: #718096;
+    }
     #map { flex: 1; }
     /* Enhancements: spacing, actions, toggle */
     .map-wrapper { position: relative; }
@@ -63,7 +175,7 @@
   </style>
   <div class="map-wrapper">
     <aside class="sidebar">
-      <div class="section section-box">
+      <div class="section section-box section-basemap">
         <div class="section-header">
           <h2>Camada base</h2>
           <button class="btn btn-sm btn-outline-secondary" type="button" data-collapse="#sec-basemap">Ocultar</button>
@@ -79,7 +191,7 @@
         </div>
       </div>
       <hr />
-      <div class="section section-box">
+      <div class="section section-box section-layers">
         <div class="section-header">
           <h2>Minhas camadas</h2>
           <span class="badge rounded-pill" id="layer-count">0</span>
@@ -91,7 +203,7 @@
         <p class="muted" id="no-layers" style="display:none">Nenhum arquivo. Envie um abaixo.</p>
       </div>
       <hr />
-      <div class="section section-box">
+      <div class="section section-box section-upload">
         <div class="section-header">
           <h2>Novo GeoJSON</h2>
           <div class="d-flex gap-2">
@@ -944,11 +1056,13 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ data: updated })
         });
+        
         if (!resp.ok) {
           const msg = await resp.text();
           alert('Falha ao salvar: ' + msg);
           return;
         }
+        
         const saved = await resp.json();
         // update local state
         const idx = currentItems.findIndex(it => it.id === editingItemId);
